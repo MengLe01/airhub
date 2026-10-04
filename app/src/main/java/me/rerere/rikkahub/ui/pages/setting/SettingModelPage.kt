@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import me.rerere.ai.core.ReasoningLevel
+import me.rerere.ai.provider.Modality
 import me.rerere.ai.provider.Model
 import me.rerere.ai.provider.ModelType
 import me.rerere.ai.provider.ProviderSetting
@@ -149,6 +150,7 @@ private fun ModelSettingsPage(settings: Settings, vm: SettingVM, contentPadding:
                 description = stringResource(R.string.setting_model_page_ocr_model_desc),
                 modelId = settings.ocrModelId,
                 providers = settings.providers,
+                modelFilter = { Modality.IMAGE in it.inputModalities },
                 onSelect = { vm.updateSettings(settings.copy(ocrModelId = it.id)) },
             )
         }
@@ -191,6 +193,7 @@ private fun ModelSettingItem(
     modelId: Uuid?,
     providers: List<ProviderSetting>,
     onSelect: (Model) -> Unit,
+    modelFilter: (Model) -> Boolean = { true },
     reasoningLevel: ReasoningLevel? = null,
     onUpdateReasoningLevel: ((ReasoningLevel) -> Unit)? = null,
 ) {
@@ -198,6 +201,7 @@ private fun ModelSettingItem(
         modelId = modelId,
         providers = providers,
         type = ModelType.CHAT,
+        modelFilter = modelFilter,
     )
 
     Column {
