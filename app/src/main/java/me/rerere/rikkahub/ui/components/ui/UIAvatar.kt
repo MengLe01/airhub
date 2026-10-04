@@ -91,6 +91,7 @@ fun UIAvatar(
     value: Avatar,
     modifier: Modifier = Modifier,
     loading: Boolean = false,
+    showEditBadge: Boolean = true,
     onUpdate: ((Avatar) -> Unit)? = null,
     onClick: (() -> Unit)? = null
 ) {
@@ -199,7 +200,7 @@ fun UIAvatar(
         }
 
         // Show edit icon when editable
-        if (onUpdate != null) {
+        if (onUpdate != null && showEditBadge) {
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
