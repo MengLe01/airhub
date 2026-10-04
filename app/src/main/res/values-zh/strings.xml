@@ -302,6 +302,9 @@
   <string name="chat_page_search_chats">搜索聊天</string>
   <string name="chat_page_today">今天</string>
   <string name="chat_page_yesterday">昨天</string>
+  <string name="chat_page_within_30_days">30天内</string>
+  <string name="chat_page_within_7_days">7天内</string>
+  <string name="chat_page_month_group">%1$d年%2$d月</string>
   <string name="chat_size_dialog_content">当前消息数：%1$d。这可能导致应用崩溃或卡顿，甚至丢失本次对话数据。请尽快新建对话以继续聊天。</string>
   <string name="chat_size_dialog_title">此对话数据过大</string>
   <string name="citations_count">%1$d 条引用</string>
@@ -706,6 +709,8 @@
   <string name="setting_display_page_show_datetime_in_message_title">在消息中显示日期和时间</string>
   <string name="setting_display_page_show_character_count_in_message_desc">在每条消息下方显示正文的字数</string>
   <string name="setting_display_page_show_character_count_in_message_title">在消息中显示字数</string>
+  <string name="setting_display_page_sidebar_date_grouping_desc">按今天、昨天、7天内、30天内和更早月份分组显示会话</string>
+  <string name="setting_display_page_sidebar_date_grouping_title">侧边栏日期分组</string>
   <string name="setting_display_page_show_line_numbers_desc">在代码块中显示行号</string>
   <string name="setting_display_page_show_line_numbers_title">显示行号</string>
   <string name="setting_display_page_show_message_jumper_desc">在滚动聊天列表时，在右侧显示快速跳转按钮</string>

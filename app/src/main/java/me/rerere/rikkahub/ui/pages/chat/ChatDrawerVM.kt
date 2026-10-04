@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.datastore.SettingsStore
+import me.rerere.rikkahub.data.model.Conversation
 import me.rerere.rikkahub.data.model.Folder
 import me.rerere.rikkahub.data.repository.ConversationRepository
 import me.rerere.rikkahub.data.repository.FolderRepository
@@ -30,7 +31,19 @@ import me.rerere.rikkahub.service.ChatService
 import me.rerere.rikkahub.utils.toLocalString
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 import kotlin.uuid.Uuid
+
+private data class ConversationPagingData(
+    val sourceKey: String,
+    val groupingEnabled: Boolean,
+    val data: PagingData<Conversation>,
+)
+
+private data class DateGroup(
+    val key: String,
+    val label: String,
+)
 
 class ChatDrawerVM(
     private val context: Application,
@@ -55,62 +68,76 @@ class ChatDrawerVM(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val conversations: Flow<PagingData<ConversationListItem>> =
-        combine(assistantIdFlow, _selectedFolderId) { assistantId, folderId ->
-            assistantId to folderId
+        combine(
+            assistantIdFlow,
+            _selectedFolderId,
+            settingsStore.settingsFlow
+                .map { it.displaySetting.enableSidebarDateGrouping }
+                .distinctUntilChanged(),
+        ) { assistantId, folderId, groupingEnabled ->
+            Triple(assistantId, folderId, groupingEnabled)
         }
-            .flatMapLatest { (assistantId, folderId) ->
-                if (folderId == null) {
+            .flatMapLatest { (assistantId, folderId, groupingEnabled) ->
+                val sourceKey = "${assistantId}_${folderId ?: "unfiled"}"
+                val pagingData = if (folderId == null) {
                     conversationRepo.getUnfiledConversationsOfAssistantPaging(assistantId)
                 } else {
                     conversationRepo.getConversationsOfFolderPaging(folderId)
                 }
+                pagingData.map { data ->
+                    ConversationPagingData(sourceKey, groupingEnabled, data)
+                }
             }
-            .map { pagingData ->
-                pagingData
-                    .map { ConversationListItem.Item(it) }
+            .map { pagingDataRequest ->
+                val today = LocalDate.now()
+                pagingDataRequest.data
+                    .map {
+                        ConversationListItem.Item(
+                            sourceKey = pagingDataRequest.sourceKey,
+                            conversation = it,
+                        )
+                    }
                     .insertSeparators<ConversationListItem.Item, ConversationListItem> { before, after ->
                         when {
                             before == null && after is ConversationListItem.Item -> {
                                 if (after.conversation.isPinned) {
-                                    ConversationListItem.PinnedHeader
+                                    ConversationListItem.PinnedHeader(pagingDataRequest.sourceKey)
+                                } else if (pagingDataRequest.groupingEnabled) {
+                                    getDateGroup(after, today).toHeader(pagingDataRequest.sourceKey)
                                 } else {
-                                    val afterDate = after.conversation.updateAt
-                                        .atZone(ZoneId.systemDefault())
-                                        .toLocalDate()
-                                    ConversationListItem.DateHeader(
-                                        date = afterDate,
-                                        label = getDateLabel(afterDate)
-                                    )
+                                    getNaturalDateHeader(after, pagingDataRequest.sourceKey)
                                 }
                             }
 
                             before is ConversationListItem.Item && after is ConversationListItem.Item -> {
-                                if (before.conversation.isPinned && !after.conversation.isPinned) {
-                                    val afterDate = after.conversation.updateAt
-                                        .atZone(ZoneId.systemDefault())
-                                        .toLocalDate()
-                                    ConversationListItem.DateHeader(
-                                        date = afterDate,
-                                        label = getDateLabel(afterDate)
-                                    )
-                                } else if (!after.conversation.isPinned) {
+                                if (after.conversation.isPinned) {
+                                    null
+                                } else if (pagingDataRequest.groupingEnabled) {
+                                    val afterGroup = getDateGroup(after, today)
+                                    val beforeGroup = if (before.conversation.isPinned) {
+                                        null
+                                    } else {
+                                        getDateGroup(before, today)
+                                    }
+                                    if (beforeGroup?.key != afterGroup.key) {
+                                        afterGroup.toHeader(pagingDataRequest.sourceKey)
+                                    } else {
+                                        null
+                                    }
+                                } else if (before.conversation.isPinned) {
+                                    getNaturalDateHeader(after, pagingDataRequest.sourceKey)
+                                } else {
                                     val beforeDate = before.conversation.updateAt
                                         .atZone(ZoneId.systemDefault())
                                         .toLocalDate()
                                     val afterDate = after.conversation.updateAt
                                         .atZone(ZoneId.systemDefault())
                                         .toLocalDate()
-
                                     if (beforeDate != afterDate) {
-                                        ConversationListItem.DateHeader(
-                                            date = afterDate,
-                                            label = getDateLabel(afterDate)
-                                        )
+                                        getNaturalDateHeader(after, pagingDataRequest.sourceKey)
                                     } else {
                                         null
                                     }
-                                } else {
-                                    null
                                 }
                             }
 
@@ -192,4 +219,62 @@ class ChatDrawerVM(
             else -> date.toLocalString(date.year != today.year)
         }
     }
+
+    private fun getNaturalDateHeader(
+        item: ConversationListItem.Item,
+        sourceKey: String,
+    ): ConversationListItem.DateHeader {
+        val date = item.conversation.updateAt
+            .atZone(ZoneId.systemDefault())
+            .toLocalDate()
+        return ConversationListItem.DateHeader(
+            sourceKey = sourceKey,
+            key = date.toString(),
+            label = getDateLabel(date),
+        )
+    }
+
+    private fun getDateGroup(item: ConversationListItem.Item, today: LocalDate): DateGroup {
+        val date = item.conversation.updateAt
+            .atZone(ZoneId.systemDefault())
+            .toLocalDate()
+        val daysAgo = ChronoUnit.DAYS.between(date, today)
+
+        return when {
+            daysAgo <= 0 -> DateGroup(
+                key = "today",
+                label = context.getString(R.string.chat_page_today),
+            )
+
+            daysAgo == 1L -> DateGroup(
+                key = "yesterday",
+                label = context.getString(R.string.chat_page_yesterday),
+            )
+
+            daysAgo < 7 -> DateGroup(
+                key = "within_7_days",
+                label = context.getString(R.string.chat_page_within_7_days),
+            )
+
+            daysAgo < 30 -> DateGroup(
+                key = "within_30_days",
+                label = context.getString(R.string.chat_page_within_30_days),
+            )
+
+            else -> DateGroup(
+                key = "month_${date.year}_${date.monthValue}",
+                label = context.getString(
+                    R.string.chat_page_month_group,
+                    date.year,
+                    date.monthValue,
+                ),
+            )
+        }
+    }
+
+    private fun DateGroup.toHeader(sourceKey: String) = ConversationListItem.DateHeader(
+        sourceKey = sourceKey,
+        key = key,
+        label = label,
+    )
 }

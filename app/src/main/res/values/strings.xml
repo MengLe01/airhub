@@ -302,6 +302,9 @@
   <string name="chat_page_search_chats">Search Chats</string>
   <string name="chat_page_today">Today</string>
   <string name="chat_page_yesterday">Yesterday</string>
+  <string name="chat_page_within_30_days">Within 30 days</string>
+  <string name="chat_page_within_7_days">Within 7 days</string>
+  <string name="chat_page_month_group">%1$d/%2$d</string>
   <string name="chat_size_dialog_content">Current message count: %1$d. This may cause the application to crash or lag, or even lose this conversation data. Please create a new conversation as soon as possible to continue chatting.</string>
   <string name="chat_size_dialog_title">This conversation data is too large</string>
   <string name="citations_count">%1$d Citations</string>
@@ -713,6 +716,8 @@
   <string name="setting_display_page_show_datetime_in_message_title">Show Date and Time in Message</string>
   <string name="setting_display_page_show_character_count_in_message_desc">Show the character count below each message. CJK characters, letters, digits, emoji, whitespace, and other characters count as one; reasoning is excluded.</string>
   <string name="setting_display_page_show_character_count_in_message_title">Show Character Count in Message</string>
+  <string name="setting_display_page_sidebar_date_grouping_desc">Group chats by today, yesterday, within 7 days, within 30 days, and older months</string>
+  <string name="setting_display_page_sidebar_date_grouping_title">Group Sidebar by Date</string>
   <string name="setting_display_page_show_line_numbers_desc">Display line numbers in code blocks</string>
   <string name="setting_display_page_show_line_numbers_title">Show Line Numbers</string>
   <string name="setting_display_page_show_message_jumper_desc">Display quick jump buttons on the right when scrolling the chat list</string>
