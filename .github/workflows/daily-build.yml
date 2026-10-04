@@ -69,7 +69,15 @@ jobs:
         id: apk
         shell: bash
         run: |
-          apk_path="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*-universal-release.apk' -print -quit)"
+          # 命名与 build.sh 保持一致：airhub_<版本>_<构建时间>_<短commit>.apk
+          timestamp="$(TZ=Asia/Shanghai date +%Y%m%d_%H%M)"
+          short_sha="${GITHUB_SHA::7}"
+          version="$(grep -m1 'versionName' app/build.gradle.kts | sed -E 's/.*versionName = "([^"]+)".*/\1/')"
+          version="${version:-unknown}"
+          apk_path="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*-arm64-v8a-release.apk' -print -quit)"
+          if [ -z "$apk_path" ]; then
+            apk_path="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*-universal-release.apk' -print -quit)"
+          fi
           if [ -z "$apk_path" ]; then
             apk_path="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' -print -quit)"
           fi
@@ -78,9 +86,10 @@ jobs:
             exit 1
           fi
 
-          renamed_path="app/build/outputs/apk/release/airhub_${GITHUB_SHA::8}.apk"
+          renamed_path="app/build/outputs/apk/release/airhub_${version}_${timestamp}_${short_sha}.apk"
           mv "$apk_path" "$renamed_path"
           echo "path=$renamed_path" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Publish prerelease
         uses: softprops/action-gh-release@v2
