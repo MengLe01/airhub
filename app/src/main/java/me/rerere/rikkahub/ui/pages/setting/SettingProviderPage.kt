@@ -222,7 +222,16 @@ fun SettingProviderPage(vm: SettingVM = koinViewModel()) {
         dismissText = stringResource(R.string.cancel),
         onConfirm = {
             deleteTarget?.let { target ->
-                vm.updateSettings(settings.copy(providers = settings.providers.filter { it.id != target.id }))
+                vm.updateSettings(
+                    settings.copy(
+                        providers = settings.providers.filter { it.id != target.id },
+                        removedBuiltInProviderIds = if (target.builtIn) {
+                            settings.removedBuiltInProviderIds + target.id
+                        } else {
+                            settings.removedBuiltInProviderIds
+                        },
+                    )
+                )
             }
             deleteTarget = null
         },
@@ -655,7 +664,6 @@ private fun ProviderItem(
                         text = stringResource(R.string.delete),
                         icon = HugeIcons.Delete01,
                         destructive = true,
-                        enabled = !provider.builtIn,
                         onClick = onDelete,
                     ),
                 )

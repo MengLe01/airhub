@@ -134,6 +134,7 @@ class SettingsStore(
 
         // 提供商
         val PROVIDERS = stringPreferencesKey("providers")
+        val REMOVED_BUILT_IN_PROVIDER_IDS = stringPreferencesKey("removed_built_in_provider_ids")
 
         // 助手
         val SELECT_ASSISTANT = stringPreferencesKey("select_assistant")
@@ -216,6 +217,8 @@ class SettingsStore(
                 preferences[COMPRESS_PROMPT] = settings.compressPrompt
 
                 preferences[PROVIDERS] = JsonInstant.encodeToString(settings.providers)
+                preferences[REMOVED_BUILT_IN_PROVIDER_IDS] =
+                    JsonInstant.encodeToString(settings.removedBuiltInProviderIds)
 
                 preferences[ASSISTANTS] = JsonInstant.encodeToString(settings.assistants)
                 preferences[SELECT_ASSISTANT] = settings.assistantId.toString()
@@ -294,6 +297,9 @@ class SettingsStore(
                     JsonInstant.decodeFromString(it)
                 } ?: emptyList(),
                 providers = JsonInstant.decodeFromString(preferences[PROVIDERS] ?: "[]"),
+                removedBuiltInProviderIds = preferences[REMOVED_BUILT_IN_PROVIDER_IDS]?.let {
+                    JsonInstant.decodeFromString(it)
+                } ?: emptySet(),
                 assistants = JsonInstant.decodeFromString(preferences[ASSISTANTS] ?: "[]"),
                 dynamicColor = preferences[DYNAMIC_COLOR] != false,
                 themeId = preferences[THEME_ID] ?: PresetThemes[0].id,
@@ -351,9 +357,19 @@ class SettingsStore(
             )
         }
         .map {
-            var providers = it.providers.ifEmpty { DEFAULT_PROVIDERS }.toMutableList()
+            val removedBuiltInProviderIds = it.removedBuiltInProviderIds
+            var providers = (
+                if (it.providers.isEmpty() && removedBuiltInProviderIds.isEmpty()) {
+                    DEFAULT_PROVIDERS
+                } else {
+                    it.providers
+                }
+            ).toMutableList()
             DEFAULT_PROVIDERS.forEach { defaultProvider ->
-                if (providers.none { it.id == defaultProvider.id }) {
+                if (
+                    defaultProvider.id !in removedBuiltInProviderIds &&
+                    providers.none { it.id == defaultProvider.id }
+                ) {
                     providers.add(defaultProvider.copyProvider())
                 }
             }
@@ -585,6 +601,7 @@ data class Settings(
     val compressPrompt: String = DEFAULT_COMPRESS_PROMPT,
     val assistantId: Uuid = DEFAULT_ASSISTANT_ID,
     val providers: List<ProviderSetting> = DEFAULT_PROVIDERS,
+    val removedBuiltInProviderIds: Set<Uuid> = emptySet(),
     val assistants: List<Assistant> = DEFAULT_ASSISTANTS,
     val assistantTags: List<Tag> = emptyList(),
     val searchServices: List<SearchServiceOptions> = listOf(SearchServiceOptions.DEFAULT),
