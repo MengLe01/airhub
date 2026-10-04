@@ -8,7 +8,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.LargeFlexibleTopAppBar
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -24,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.rerere.rikkahub.R
@@ -229,21 +232,30 @@ fun SettingPreferencesGeneralPage(vm: SettingVM = koinViewModel()) {
                         item(
                             headlineContent = { Text(stringResource(R.string.setting_display_page_paste_long_text_threshold_title)) },
                             supportingContent = {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    Slider(
-                                        value = displaySetting.pasteLongTextThreshold.toFloat(),
-                                        onValueChange = {
-                                            updateDisplaySetting(displaySetting.copy(pasteLongTextThreshold = it.toInt()))
-                                        },
-                                        valueRange = 100f..10000f,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    Text(text = "${displaySetting.pasteLongTextThreshold}")
+                                var thresholdInput by remember(displaySetting.pasteLongTextThreshold) {
+                                    mutableStateOf(displaySetting.pasteLongTextThreshold.toString())
                                 }
+                                val thresholdValue = thresholdInput.toIntOrNull()
+                                OutlinedTextField(
+                                    value = thresholdInput,
+                                    onValueChange = { value ->
+                                        thresholdInput = value
+                                        value.toIntOrNull()
+                                            ?.takeIf { it in 100..10000 }
+                                            ?.let { threshold ->
+                                                updateDisplaySetting(
+                                                    displaySetting.copy(pasteLongTextThreshold = threshold)
+                                                )
+                                            }
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    singleLine = true,
+                                    isError = thresholdValue == null || thresholdValue !in 100..10000,
+                                    supportingText = {
+                                        Text("100 - 10000")
+                                    }
+                                )
                             },
                         )
                     }
