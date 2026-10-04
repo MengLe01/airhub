@@ -32,7 +32,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -91,22 +90,6 @@ fun ColumnScope.ConversationList(
     onMoveToAssistant: (Conversation) -> Unit = {},
     onMoveToFolder: (Conversation) -> Unit = {}
 ) {
-    var hasScrolledToCurrent by remember(current.id) { mutableStateOf(false) }
-
-    LaunchedEffect(current.id, conversations.itemCount, hasScrolledToCurrent) {
-        if (hasScrolledToCurrent) return@LaunchedEffect
-        val currentIndex = conversations.itemSnapshotList.items.indexOfFirst {
-            (it as? ConversationListItem.Item)?.conversation?.id == current.id
-        }
-        if (currentIndex >= 0) {
-            val isVisible = listState.layoutInfo.visibleItemsInfo.any { it.index == currentIndex }
-            if (!isVisible) {
-                listState.scrollToItem(currentIndex)
-            }
-            hasScrolledToCurrent = true
-        }
-    }
-
     LazyColumn(
         state = listState,
         modifier = modifier,

@@ -107,6 +107,12 @@ fun ChatDrawerContent(
         initialFirstVisibleItemScrollOffset = drawerVm.scrollOffset,
     )
 
+    // 切换会话会整体重建侧边栏，初始滚动位置可能在列表数据就绪前丢失，
+    // 先记住本次要恢复的位置，等列表数据就绪后一次性恢复
+    var pendingScrollRestore by remember {
+        mutableStateOf(drawerVm.scrollIndex to drawerVm.scrollOffset)
+    }
+
     LaunchedEffect(conversationListState) {
         snapshotFlow {
             conversationListState.firstVisibleItemIndex to
@@ -114,12 +120,17 @@ fun ChatDrawerContent(
         }
             .distinctUntilChanged()
             .collectLatest { (index, offset) ->
-                drawerVm.saveScrollPosition(index, offset)
+                // 恢复位置落地前不写入，避免列表空窗期的 0 值覆盖上次位置
+                if (pendingScrollRestore == null) {
+                    drawerVm.saveScrollPosition(index, offset)
+                }
             }
     }
 
     LaunchedEffect(sourceKey) {
-        if (sourceKey.isNotEmpty()) {
+        // 只在真正切换助手/文件夹时回顶，切换会话重建侧边栏时保持滚动位置
+        if (sourceKey.isNotEmpty() && drawerVm.shouldScrollToTopForSource(sourceKey)) {
+            pendingScrollRestore = null
             conversationListState.scrollToItem(0)
         }
     }
@@ -127,7 +138,24 @@ fun ChatDrawerContent(
     val conversationJobs by vm.conversationJobs.collectAsStateWithLifecycle(
         initialValue = emptyMap(),
     )
+    val currentConversationIsGenerating = current.id in conversationJobs
+    // 新会话或当前会话正在生成时回顶；正在加载的会话不参与判断，
+    // 否则刚点开的会话会因为初始空状态把侧边栏弹回顶部
+    LaunchedEffect(current.id, currentConversationIsGenerating, current.newConversation) {
+        if (currentConversationIsGenerating || current.newConversation) {
+            pendingScrollRestore = null
+            conversationListState.scrollToItem(0)
+        }
+    }
 
+    // 列表数据就绪后恢复上次滚动位置，只执行一次
+    LaunchedEffect(conversations.itemCount) {
+        val target = pendingScrollRestore ?: return@LaunchedEffect
+        if (conversations.itemCount > target.first) {
+            conversationListState.scrollToItem(target.first, target.second)
+            pendingScrollRestore = null
+        }
+    }
     // 昵称编辑状态
     val nicknameEditState = useEditState<String> { newNickname ->
         vm.updateSettings(

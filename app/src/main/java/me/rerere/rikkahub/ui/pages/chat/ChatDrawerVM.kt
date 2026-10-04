@@ -171,6 +171,17 @@ class ChatDrawerVM(
         savedStateHandle["scrollOffset"] = offset
     }
 
+    /**
+     * 每个 sourceKey 只在真正切换助手/文件夹时回顶一次，
+     * 侧边栏因切换会话等原因重建时返回 false，沿用已保存的滚动位置。
+     */
+    fun shouldScrollToTopForSource(sourceKey: String): Boolean {
+        val consumed = savedStateHandle.get<String>("scrollToTopSourceKey")
+        if (consumed == sourceKey) return false
+        savedStateHandle["scrollToTopSourceKey"] = sourceKey
+        return true
+    }
+
     fun selectFolder(folderId: Uuid?) {
         _selectedFolderId.value = folderId
     }
