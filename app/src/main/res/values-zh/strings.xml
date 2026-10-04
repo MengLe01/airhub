@@ -255,6 +255,7 @@
   <string name="chat_message_tool_search_results_count">共 %1$d 条结果</string>
   <string name="chat_message_tool_search_web">搜索网页: %1$s</string>
   <string name="chat_message_tool_submit">提交</string>
+  <string name="chat_message_character_count">%1$d 字</string>
   <string name="chat_page_cancel">取消</string>
   <string name="chat_page_check_fast_model_settings">检查快速模型设置</string>
   <string name="chat_page_clear_all_errors">清除全部</string>
@@ -703,6 +704,8 @@
   <string name="setting_display_page_show_assistant_bubble_title">显示助手消息气泡</string>
   <string name="setting_display_page_show_datetime_in_message_desc">在每条消息下方显示日期和时间</string>
   <string name="setting_display_page_show_datetime_in_message_title">在消息中显示日期和时间</string>
+  <string name="setting_display_page_show_character_count_in_message_desc">在每条消息下方显示正文的字数</string>
+  <string name="setting_display_page_show_character_count_in_message_title">在消息中显示字数</string>
   <string name="setting_display_page_show_line_numbers_desc">在代码块中显示行号</string>
   <string name="setting_display_page_show_line_numbers_title">显示行号</string>
   <string name="setting_display_page_show_message_jumper_desc">在滚动聊天列表时，在右侧显示快速跳转按钮</string>

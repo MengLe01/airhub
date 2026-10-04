@@ -255,6 +255,7 @@
   <string name="chat_message_tool_search_results_count">%1$d results</string>
   <string name="chat_message_tool_search_web">Search web: %1$s</string>
   <string name="chat_message_tool_submit">Submit</string>
+  <string name="chat_message_character_count">%1$d chars</string>
   <string name="chat_page_cancel">Cancel</string>
   <string name="chat_page_check_fast_model_settings">Check fast model settings</string>
   <string name="chat_page_clear_all_errors">Clear all</string>
@@ -710,6 +711,8 @@
   <string name="setting_display_page_show_assistant_bubble_title">Show Assistant Message Bubble</string>
   <string name="setting_display_page_show_datetime_in_message_desc">Show date and time below each message</string>
   <string name="setting_display_page_show_datetime_in_message_title">Show Date and Time in Message</string>
+  <string name="setting_display_page_show_character_count_in_message_desc">Show the character count below each message. CJK characters, letters, digits, emoji, whitespace, and other characters count as one; reasoning is excluded.</string>
+  <string name="setting_display_page_show_character_count_in_message_title">Show Character Count in Message</string>
   <string name="setting_display_page_show_line_numbers_desc">Display line numbers in code blocks</string>
   <string name="setting_display_page_show_line_numbers_title">Show Line Numbers</string>
   <string name="setting_display_page_show_message_jumper_desc">Display quick jump buttons on the right when scrolling the chat list</string>

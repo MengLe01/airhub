@@ -59,6 +59,7 @@ import me.rerere.rikkahub.data.model.MessageNode
 import me.rerere.rikkahub.ui.components.ui.RikkaConfirmDialog
 import me.rerere.rikkahub.ui.context.LocalSettings
 import me.rerere.rikkahub.ui.context.LocalTTSState
+import me.rerere.rikkahub.utils.characterCount
 import me.rerere.rikkahub.utils.copyMessageToClipboard
 import me.rerere.rikkahub.utils.extractQuotedContentAsText
 import me.rerere.rikkahub.utils.removeBracketedContent
@@ -207,6 +208,25 @@ fun ColumnScope.ChatMessageActionButtons(
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 maxLines = 1,
             )
+        }
+
+        if (settings.displaySetting.showCharacterCountInMessage) {
+            val characterCount = remember(message.parts) {
+                message.parts
+                    .filterIsInstance<UIMessagePart.Text>()
+                    .sumOf { it.text.characterCount() }
+            }
+            if (characterCount > 0) {
+                Text(
+                    text = stringResource(
+                        R.string.chat_message_character_count,
+                        characterCount,
+                    ),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    maxLines = 1,
+                )
+            }
         }
     }
 
