@@ -318,7 +318,7 @@
   <string name="copied">Copied</string>
   <string name="copy">Copy</string>
   <string name="copy_all">Copy All</string>
-  <string name="create_fork">Create a fork</string>
+  <string name="create_fork">Create Copy</string>
   <string name="db_migrating">Migrating database...</string>
   <string name="deep_thinking">Deep Thinking</string>
   <string name="deep_thinking_seconds">Thought for %1$.1f seconds</string>
@@ -554,7 +554,7 @@
   <string name="reasoning_xhigh">XHigh</string>
   <string name="regenerate">Regenerate</string>
   <string name="regenerate_confirm_message">Are you sure you want to regenerate this message? All messages below this message will be deleted.</string>
-  <string name="render_with_webview">Render with WebView</string>
+  <string name="render_with_webview">Web Render</string>
   <string name="rikkahub_provider_description">Official free AI service, using user sponsorship funds to provide some free models for new users as fallback, no API key required. Has strict rate limits, if you have purchased your own provider, please use your own provider as much as possible.</string>
   <string name="safe_mode_assistants">Assistants</string>
   <string name="safe_mode_copy">Copy</string>
@@ -610,7 +610,9 @@
   <string name="search_picker_model_description">Cloud search built into the model provider</string>
   <string name="search_picker_select_provider">Select search provider</string>
   <string name="search_picker_turn_off">Turn off search</string>
-  <string name="select_and_copy">Select and Copy</string>
+  <string name="select_and_copy">Select Text</string>
+  <string name="read_aloud">Read Aloud</string>
+  <string name="stop_reading">Stop Reading</string>
   <string name="send">Send</string>
   <string name="setting_asr_configure_api_key">API Key</string>
   <string name="setting_asr_configure_dashscope_api_key_desc">DashScope API key</string>

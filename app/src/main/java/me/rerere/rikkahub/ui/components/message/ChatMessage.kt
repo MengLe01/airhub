@@ -129,6 +129,7 @@ fun ChatMessage(
     )
     var showActionsSheet by remember { mutableStateOf(false) }
     var showSelectCopySheet by remember { mutableStateOf(false) }
+    var showTranslateDialog by remember { mutableStateOf(false) }
     val navController = LocalNavController.current
     val context = LocalContext.current
     val colorScheme = MaterialTheme.colorScheme
@@ -196,14 +197,13 @@ fun ChatMessage(
             ) {
                 ChatMessageActionButtons(
                     message = message,
+                    onEdit = onEdit,
                     onRegenerate = onRegenerate,
                     node = node,
                     onUpdate = onUpdate,
                     onOpenActionSheet = {
                         showActionsSheet = true
                     },
-                    onTranslate = onTranslate,
-                    onClearTranslation = onClearTranslation
                 )
             }
         }
@@ -221,7 +221,6 @@ fun ChatMessage(
     if (showActionsSheet) {
         ChatMessageActionsSheet(
             message = message,
-            onEdit = onEdit,
             onDelete = onDelete,
             onShare = onShare,
             onFork = onFork,
@@ -246,9 +245,30 @@ fun ChatMessage(
                     navController.navigate(Screen.WebView(contentId = contentId))
                 }
             },
+            onTranslateRequest = onTranslate?.let {
+                {
+                    showTranslateDialog = true
+                }
+            },
             onDismissRequest = {
                 showActionsSheet = false
             }
+        )
+    }
+
+    if (showTranslateDialog && onTranslate != null) {
+        LanguageSelectionDialog(
+            onLanguageSelected = { language ->
+                showTranslateDialog = false
+                onTranslate(message, language)
+            },
+            onClearTranslation = {
+                showTranslateDialog = false
+                onClearTranslation(message)
+            },
+            onDismissRequest = {
+                showTranslateDialog = false
+            },
         )
     }
 
