@@ -291,7 +291,7 @@
   <string name="chat_page_menu_ai_translator">AI翻译</string>
   <string name="chat_page_menu_image_generation">图像生成</string>
   <string name="chat_page_message_count">%d 条消息</string>
-  <string name="chat_page_move_to_assistant">移至助手</string>
+  <string name="chat_page_move_to_assistant">移动到助手</string>
   <string name="chat_page_new_chat">新聊天</string>
   <string name="chat_page_new_message">新消息</string>
   <string name="chat_page_nickname_placeholder">请输入昵称</string>
