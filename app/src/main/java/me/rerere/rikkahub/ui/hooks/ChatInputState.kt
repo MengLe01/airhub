@@ -13,6 +13,9 @@ class ChatInputState {
     val textContent = TextFieldState()
     var messageContent by mutableStateOf(listOf<UIMessagePart>())
     var editingMessage by mutableStateOf<Uuid?>(null)
+
+    // 虚拟 AI 输入模式：发送的内容直接写入为 AI 消息，不绑定模型、不触发生成
+    var virtualAssistantMode by mutableStateOf(false)
     private var editingParts: List<UIMessagePart>? = null
     private var editingAttachmentUrls: Set<String> = emptySet()
 

@@ -368,6 +368,27 @@ class ChatService(
         }
     }
 
+    /**
+     * 直接写入一条 AI 消息，不绑定模型、不触发生成。
+     *
+     * 用于手动构造对话（虚拟 AI 输入）：内容和时间戳按普通消息处理，
+     * 会话 updateAt 同步更新，保证排序与「新消息」一致，但不进入队列、不调用补全。
+     */
+    suspend fun sendAssistantMessage(conversationId: Uuid, content: List<UIMessagePart>) {
+        if (content.isEmptyInputMessage()) return
+        // 与普通发送一致：等会话加载完成，避免用占位空会话覆盖历史消息
+        initializeConversation(conversationId)
+        val currentConversation = getConversationFlow(conversationId).value
+        val newConversation = currentConversation.copy(
+            updateAt = Instant.now(),
+            messageNodes = currentConversation.messageNodes + UIMessage(
+                role = MessageRole.ASSISTANT,
+                parts = content,
+            ).toMessageNode(),
+        )
+        saveConversation(conversationId, newConversation)
+    }
+
     /** Enqueue immediately; the result belongs to this item even after edits or later turns. */
     fun enqueueVoiceMessage(conversationId: Uuid, text: String): Deferred<String?> {
         val session = sessionManager.getOrCreate(conversationId)

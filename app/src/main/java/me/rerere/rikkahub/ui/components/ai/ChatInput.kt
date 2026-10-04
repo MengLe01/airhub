@@ -310,6 +310,10 @@ fun ChatInput(
                                 state = modelListState,
                                 onlyIcon = true,
                                 modifier = Modifier,
+                                virtualAssistantMode = state.virtualAssistantMode,
+                                onToggleVirtualAssistantMode = {
+                                    state.virtualAssistantMode = !state.virtualAssistantMode
+                                },
                             )
 
                             // Search

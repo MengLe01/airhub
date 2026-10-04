@@ -192,6 +192,15 @@ class ChatVM(
         chatService.sendMessage(_conversationId, content, answer)
     }
 
+    /**
+     * 虚拟 AI 输入：把输入内容直接写成一条 AI 消息，不选择模型、不触发生成。
+     */
+    fun handleAssistantMessageSend(content: List<UIMessagePart>) {
+        viewModelScope.launch {
+            chatService.sendAssistantMessage(_conversationId, content)
+        }
+    }
+
     fun handleMessageEdit(parts: List<UIMessagePart>, messageId: Uuid) {
         if (parts.isEmptyInputMessage()) return
 

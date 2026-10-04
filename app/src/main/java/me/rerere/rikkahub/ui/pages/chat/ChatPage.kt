@@ -414,7 +414,7 @@ private fun ChatPageContent(
                         )
                     },
                     onSendClick = {
-                        if (currentChatModel == null) {
+                        if (!inputState.virtualAssistantMode && currentChatModel == null) {
                             toaster.show("请先选择模型", type = ToastType.Error)
                             return@ChatInput
                         }
@@ -424,7 +424,12 @@ private fun ChatPageContent(
                                 messageId = inputState.editingMessage!!,
                             )
                         } else {
-                            vm.handleMessageSend(inputState.getContents())
+                            if (inputState.virtualAssistantMode) {
+                                vm.handleAssistantMessageSend(inputState.getContents())
+                                inputState.virtualAssistantMode = false
+                            } else {
+                                vm.handleMessageSend(inputState.getContents())
+                            }
                             scope.launch {
                                 delay(100.milliseconds)
                                 chatListState.requestScrollToItem(conversation.currentMessages.size + 5)
@@ -439,7 +444,12 @@ private fun ChatPageContent(
                                 messageId = inputState.editingMessage!!,
                             )
                         } else {
-                            vm.handleMessageSend(content = inputState.getContents(), answer = false)
+                            if (inputState.virtualAssistantMode) {
+                                vm.handleAssistantMessageSend(inputState.getContents())
+                                inputState.virtualAssistantMode = false
+                            } else {
+                                vm.handleMessageSend(content = inputState.getContents(), answer = false)
+                            }
                             scope.launch {
                                 chatListState.requestScrollToItem(conversation.currentMessages.size + 5)
                             }

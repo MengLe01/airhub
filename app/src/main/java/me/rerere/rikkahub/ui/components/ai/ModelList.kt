@@ -1,10 +1,12 @@
 package me.rerere.rikkahub.ui.components.ai
 
 import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
@@ -21,6 +23,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
@@ -224,9 +227,10 @@ internal fun ModelSelectorButton(
     onlyIcon: Boolean = false,
     allowClear: Boolean = false,
     onClear: () -> Unit = {},
+    virtualAssistantMode: Boolean = false,
+    onToggleVirtualAssistantMode: () -> Unit = {},
 ) {
     val model = state.currentModel
-
     if (!onlyIcon) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -264,22 +268,43 @@ internal fun ModelSelectorButton(
             }
         }
     } else {
-        IconButton(
-            onClick = {
-                state.open()
-            },
+        Box(
+            modifier = Modifier
+                // 与 IconButton 默认触摸区一致，保证点击热区和长按反馈大小不变
+                .size(48.dp)
+                .clip(CircleShape)
+                .then(
+                    if (virtualAssistantMode) {
+                        Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                    } else {
+                        Modifier
+                    }
+                )
+                .combinedClickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = LocalIndication.current,
+                    onClick = { state.open() },
+                    onLongClick = onToggleVirtualAssistantMode,
+                ),
+            contentAlignment = Alignment.Center,
         ) {
-            if (model != null) {
-                AutoAIIcon(
+            when {
+                virtualAssistantMode -> Icon(
+                    imageVector = HugeIcons.Brain02,
+                    contentDescription = stringResource(R.string.setting_page_providers),
+                    modifier = Modifier.size(24.dp),
+                )
+
+                model != null -> AutoAIIcon(
                     modifier = Modifier.size(36.dp),
                     name = model.modelId,
-                    color = Color.Transparent
+                    color = Color.Transparent,
                 )
-            } else {
-                Icon(
+
+                else -> Icon(
                     imageVector = HugeIcons.Brain02,
                     contentDescription = stringResource(R.string.setting_model_page_chat_model),
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(20.dp),
                 )
             }
         }

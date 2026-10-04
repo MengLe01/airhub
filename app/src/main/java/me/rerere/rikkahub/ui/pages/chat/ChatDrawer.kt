@@ -110,7 +110,7 @@ fun ChatDrawerContent(
     // 切换会话会整体重建侧边栏，初始滚动位置可能在列表数据就绪前丢失，
     // 先记住本次要恢复的位置，等列表数据就绪后一次性恢复
     var pendingScrollRestore by remember {
-        mutableStateOf(drawerVm.scrollIndex to drawerVm.scrollOffset)
+        mutableStateOf<Pair<Int, Int>?>(drawerVm.scrollIndex to drawerVm.scrollOffset)
     }
 
     LaunchedEffect(conversationListState) {
