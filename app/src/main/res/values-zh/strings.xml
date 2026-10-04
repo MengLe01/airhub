@@ -951,7 +951,9 @@ mDNS 地址：使用 .local 主机名，同一网络中的其他设备可通过�
   <string name="setting_provider_page_model_id">模型ID</string>
   <string name="setting_provider_page_model_id_placeholder">例如：gpt-3.5-turbo</string>
   <string name="setting_provider_page_model_name">模型名称</string>
+  <string name="setting_provider_page_is_hidden">是否隐藏</string>
   <string name="setting_provider_page_model_type">模型类型</string>
+  <string name="setting_provider_page_hidden">隐藏</string>
   <string name="setting_provider_page_models">模型</string>
   <string name="setting_provider_page_name">名称</string>
   <string name="setting_provider_page_no_models">暂无模型</string>
