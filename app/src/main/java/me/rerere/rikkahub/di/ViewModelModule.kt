@@ -23,11 +23,14 @@ import me.rerere.rikkahub.ui.pages.translator.TranslatorVM
 import org.koin.core.module.dsl.viewModel
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
+import kotlin.uuid.Uuid
 
 val viewModelModule = module {
     viewModel<ChatVM> { params ->
         ChatVM(
             id = params.get(),
+            initialAssistantId = params.get<String>(1).ifEmpty { null }?.let(Uuid::parse),
+            initialFolderId = params.get<String>(2).ifEmpty { null }?.let(Uuid::parse),
             context = get(),
             settingsStore = get(),
             conversationRepo = get(),

@@ -270,18 +270,31 @@ class ChatService(
 
     // ---- 初始化对话 ----
 
-    suspend fun initializeConversation(conversationId: Uuid) {
+    suspend fun initializeConversation(
+        conversationId: Uuid,
+        initialAssistantId: Uuid? = null,
+        initialFolderId: Uuid? = null,
+    ) {
         sessionManager.withSession(conversationId) { session ->
             session.initialize {
                 conversationRepo.getConversationById(conversationId) ?: run {
                     // 新建对话, 并添加预设消息
                     val currentSettings = settingsStore.settingsFlowRaw.first()
-                    val assistant = currentSettings.getCurrentAssistant()
+                    val assistant = initialAssistantId
+                        ?.let { assistantId ->
+                            currentSettings.assistants.find { it.id == assistantId }
+                        }
+                        ?: currentSettings.getCurrentAssistant()
+                    val folderId = initialFolderId?.takeIf { folderId ->
+                        folderRepository.getFolderById(folderId)?.assistantId == assistant.id
+                    }
                     Conversation.ofId(
                         id = conversationId,
                         assistantId = assistant.id,
                         newConversation = true
-                    ).updateCurrentMessages(assistant.presetMessages)
+                    )
+                        .copy(folderId = folderId)
+                        .updateCurrentMessages(assistant.presetMessages)
                 }
             }
             settingsStore.updateAssistant(session.state.value.assistantId)

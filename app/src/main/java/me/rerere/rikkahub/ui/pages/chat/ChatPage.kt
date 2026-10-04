@@ -1,6 +1,7 @@
 package me.rerere.rikkahub.ui.pages.chat
 
 import android.net.Uri
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,6 +39,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
@@ -92,12 +94,26 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.uuid.Uuid
 
 @Composable
-fun ChatPage(id: Uuid, text: String?, files: List<Uri>, nodeId: Uuid? = null) {
+fun ChatPage(
+    id: Uuid,
+    text: String?,
+    files: List<Uri>,
+    nodeId: Uuid? = null,
+    initialAssistantId: Uuid? = null,
+    initialFolderId: Uuid? = null,
+) {
     val vm: ChatVM = koinViewModel(
         parameters = {
-            parametersOf(id.toString())
+            parametersOf(
+                id.toString(),
+                initialAssistantId?.toString().orEmpty(),
+                initialFolderId?.toString().orEmpty(),
+            )
         }
     )
+    val activity = LocalContext.current as ComponentActivity
+    val drawerVm: ChatDrawerVM = koinViewModel(viewModelStoreOwner = activity)
+    val selectedFolderId by drawerVm.selectedFolderId.collectAsStateWithLifecycle()
     val filesManager: FilesManager = koinInject()
     val navController = LocalNavController.current
     val scope = rememberCoroutineScope()
@@ -196,7 +212,8 @@ fun ChatPage(id: Uuid, text: String?, files: List<Uri>, nodeId: Uuid? = null) {
                         navController = navController,
                         current = conversation,
                         vm = vm,
-                        settings = setting
+                        settings = setting,
+                        drawerVm = drawerVm,
                     )
                 }
             ) {
@@ -217,6 +234,13 @@ fun ChatPage(id: Uuid, text: String?, files: List<Uri>, nodeId: Uuid? = null) {
                     errors = errors,
                     onDismissError = { vm.dismissError(it) },
                     onClearAllErrors = { vm.clearAllErrors() },
+                    onNewChat = {
+                        navigateToChatPage(
+                            navController,
+                            initialAssistantId = conversation.assistantId,
+                            initialFolderId = selectedFolderId,
+                        )
+                    },
                 )
             }
         }
@@ -229,7 +253,8 @@ fun ChatPage(id: Uuid, text: String?, files: List<Uri>, nodeId: Uuid? = null) {
                         navController = navController,
                         current = conversation,
                         vm = vm,
-                        settings = setting
+                        settings = setting,
+                        drawerVm = drawerVm,
                     )
                 }
             ) {
@@ -250,6 +275,13 @@ fun ChatPage(id: Uuid, text: String?, files: List<Uri>, nodeId: Uuid? = null) {
                     errors = errors,
                     onDismissError = { vm.dismissError(it) },
                     onClearAllErrors = { vm.clearAllErrors() },
+                    onNewChat = {
+                        navigateToChatPage(
+                            navController,
+                            initialAssistantId = conversation.assistantId,
+                            initialFolderId = selectedFolderId,
+                        )
+                    },
                 )
             }
             BackHandler(drawerState.isOpen) {
@@ -277,6 +309,7 @@ private fun ChatPageContent(
     errors: List<ChatError>,
     onDismissError: (Uuid) -> Unit,
     onClearAllErrors: () -> Unit,
+    onNewChat: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val toaster = LocalToaster.current
@@ -320,9 +353,7 @@ private fun ChatPageContent(
                     bigScreen = bigScreen,
                     drawerState = drawerState,
                     previewMode = previewMode,
-                    onNewChat = {
-                        navigateToChatPage(navController)
-                    },
+                    onNewChat = onNewChat,
                     onClickMenu = {
                         previewMode = !previewMode
                     },
