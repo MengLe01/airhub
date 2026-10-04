@@ -427,6 +427,13 @@ class ConversationRepository(
         )
     }
 
+    suspend fun updateConversationTimestamp(conversationId: Uuid, updateAt: Instant) {
+        conversationDAO.updateTimestamp(
+            id = conversationId.toString(),
+            updateAt = updateAt.toEpochMilli(),
+        )
+    }
+
     private fun conversationSummaryToConversation(entity: LightConversationEntity): Conversation {
         return Conversation(
             id = Uuid.parse(entity.id),

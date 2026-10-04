@@ -80,6 +80,7 @@ import me.rerere.rikkahub.data.repository.WorkspaceRepository
 import me.rerere.rikkahub.web.BadRequestException
 import me.rerere.rikkahub.web.NotFoundException
 import me.rerere.rikkahub.utils.applyPlaceholders
+import java.time.Instant
 import java.util.Locale
 import kotlin.uuid.Uuid
 
@@ -418,6 +419,7 @@ class ChatService(
 
                 // 添加消息到列表
                 val newConversation = currentConversation.copy(
+                    updateAt = Instant.now(),
                     messageNodes = currentConversation.messageNodes + UIMessage(
                         role = MessageRole.USER,
                         parts = processedContent,
@@ -616,6 +618,12 @@ class ChatService(
     ) {
         val settings = settingsStore.settingsFlow.first()
         val initialConversation = getConversationFlow(conversationId).value
+        val generationStartTime = Instant.now()
+        updateConversation(
+            conversationId,
+            initialConversation.copy(updateAt = generationStartTime),
+        )
+        conversationRepo.updateConversationTimestamp(conversationId, generationStartTime)
         val assistant = settings.getAssistantById(initialConversation.assistantId)
             ?: settings.getCurrentAssistant()
         val model = settings.findModelById(assistant.chatModelId ?: settings.chatModelId)
@@ -1240,7 +1248,13 @@ class ChatService(
 
         if (!edited) return
 
-        saveConversation(conversationId, currentConversation.copy(messageNodes = updatedNodes))
+        saveConversation(
+            conversationId,
+            currentConversation.copy(
+                messageNodes = updatedNodes,
+                updateAt = Instant.now(),
+            ),
+        )
     }
 
     suspend fun forkConversationAtMessage(
