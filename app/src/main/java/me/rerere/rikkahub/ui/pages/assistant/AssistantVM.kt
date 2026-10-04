@@ -46,9 +46,15 @@ class AssistantVM(
             cleanupAssistantFiles(assistant)
 
             val settings = settings.value
+            val remainingAssistants = settings.assistants.filter { it.id != assistant.id }
+            val nextAssistantId = settings.assistantId
+                .takeIf { currentId -> remainingAssistants.any { it.id == currentId } }
+                ?: remainingAssistants.firstOrNull()?.id
+                ?: settings.assistantId
             settingsStore.update(
                 settings.copy(
-                    assistants = settings.assistants.filter { it.id != assistant.id }
+                    assistantId = nextAssistantId,
+                    assistants = remainingAssistants,
                 )
             )
             memoryRepository.deleteMemoriesOfAssistant(assistant.id.toString())

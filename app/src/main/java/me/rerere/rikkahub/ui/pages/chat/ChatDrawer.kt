@@ -101,6 +101,7 @@ fun ChatDrawerContent(
     val conversations = drawerVm.conversations.collectAsLazyPagingItems()
     val folders by drawerVm.folders.collectAsStateWithLifecycle()
     val selectedFolderId by drawerVm.selectedFolderId.collectAsStateWithLifecycle()
+    val sourceKey by drawerVm.sourceKey.collectAsStateWithLifecycle()
     val conversationListState = rememberLazyListState(
         initialFirstVisibleItemIndex = drawerVm.scrollIndex,
         initialFirstVisibleItemScrollOffset = drawerVm.scrollOffset,
@@ -115,6 +116,12 @@ fun ChatDrawerContent(
             .collectLatest { (index, offset) ->
                 drawerVm.saveScrollPosition(index, offset)
             }
+    }
+
+    LaunchedEffect(sourceKey) {
+        if (sourceKey.isNotEmpty()) {
+            conversationListState.scrollToItem(0)
+        }
     }
 
     val conversationJobs by vm.conversationJobs.collectAsStateWithLifecycle(
