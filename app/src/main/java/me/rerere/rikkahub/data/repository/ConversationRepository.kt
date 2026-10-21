@@ -453,6 +453,13 @@ class ConversationRepository(
         messageFtsManager.updateTitle(conversationId.toString(), title)
     }
 
+    suspend fun updateConversationTimestamp(conversationId: Uuid, updateAt: Instant) {
+        conversationDAO.updateTimestamp(
+            id = conversationId.toString(),
+            updateAt = updateAt.toEpochMilli(),
+        )
+    }
+
     suspend fun updateCustomSystemPrompt(conversationId: Uuid, customSystemPrompt: String?) {
         conversationDAO.updateCustomSystemPrompt(conversationId.toString(), customSystemPrompt ?: "")
     }

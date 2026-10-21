@@ -83,6 +83,7 @@ import java.net.ConnectException
 import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import java.time.Instant
 import java.util.Locale
 import kotlin.uuid.Uuid
 
@@ -430,6 +431,7 @@ class ChatService(
                             role = MessageRole.USER,
                             parts = processedContent,
                         ).toMessageNode(),
+                        updateAt = Instant.now(),
                     )
                 }
                 session.flush()
@@ -571,10 +573,15 @@ class ChatService(
      */
     private suspend fun runTurn(session: ConversationSession, regenerateNodeId: Uuid? = null): TurnResult {
         val conversationId = session.id
+        val generationStartTime = Instant.now()
         // 生成开始前失败时通知只用来取消 Live Update，用不到发送者名称
         var senderName = ""
         try {
             val settings = settingsStore.awaitLoaded()
+            session.updateMetadata(
+                transform = { it.copy(updateAt = generationStartTime) },
+                persist = { conversationRepo.updateConversationTimestamp(conversationId, generationStartTime) },
+            )
             // 清掉上一轮的建议；没法继续执行的工具调用发给模型会被拒绝，先去掉。
             // 重新生成时只清理要发给模型的节点，被重新生成的节点保持原样，旧回复留作分支
             val conversation = session.update { latest ->
@@ -1160,7 +1167,9 @@ class ChatService(
         val settings = settingsStore.awaitLoaded()
 
         mutate(conversationId) { conversation ->
-            conversation.editMessage(messageId, parts.replaceUserRegexes(settings.getStoredAssistantOf(conversation)))
+            conversation
+                .editMessage(messageId, parts.replaceUserRegexes(settings.getStoredAssistantOf(conversation)))
+                .copy(updateAt = Instant.now())
         }
     }
 
