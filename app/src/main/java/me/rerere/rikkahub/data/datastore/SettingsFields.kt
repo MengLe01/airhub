@@ -92,6 +92,9 @@ internal val SETTINGS_FIELDS: List<SettingsField<*, *>> = with(SettingsStore) {
 
         // 提供商
         json(PROVIDERS, Settings::providers) { copy(providers = it) },
+        json(REMOVED_BUILT_IN_PROVIDER_IDS, Settings::removedBuiltInProviderIds) {
+            copy(removedBuiltInProviderIds = it)
+        },
 
         // 助手
         uuid(SELECT_ASSISTANT, Settings::assistantId) { copy(assistantId = it) },

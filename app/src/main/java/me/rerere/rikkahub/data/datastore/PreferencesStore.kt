@@ -127,6 +127,7 @@ class SettingsStore internal constructor(
 
         // 提供商
         val PROVIDERS = stringPreferencesKey("providers")
+        val REMOVED_BUILT_IN_PROVIDER_IDS = stringPreferencesKey("removed_built_in_provider_ids")
 
         // 助手
         val SELECT_ASSISTANT = stringPreferencesKey("select_assistant")

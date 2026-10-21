@@ -411,7 +411,6 @@
   <string name="error_title_translate_message">فشلت ترجمة الرسالة</string>
   <string name="expand_translation">توسيع الترجمة</string>
   <string name="export_cancel">إلغاء</string>
-  <string name="export_image_warning">\"المحتوى أعلاه من إنشاء الذكاء الاصطناعي وقد يحتوي على معلومات غير دقيقة. \"</string>
   <string name="export_import_failed">فشل الاستيراد: %s</string>
   <string name="export_import_success">تم الاستيراد بنجاح</string>
   <string name="export_share">مشاركة</string>

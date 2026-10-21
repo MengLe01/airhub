@@ -323,7 +323,6 @@
   <string name="error_title_translate_message">メッセージの翻訳に失敗しました</string>
   <string name="expand_translation">翻訳を展開</string>
   <string name="export_cancel">キャンセル</string>
-  <string name="export_image_warning">上記の内容は人工知能によって生成されており、誤りを含む可能性があります。</string>
   <string name="export_import_failed">インポートに失敗しました: %s</string>
   <string name="export_import_success">インポートが完了しました</string>
   <string name="export_share">共有</string>

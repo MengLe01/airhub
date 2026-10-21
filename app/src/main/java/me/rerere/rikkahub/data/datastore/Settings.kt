@@ -54,6 +54,8 @@ data class Settings(
     val ocrPrompt: String = DEFAULT_OCR_PROMPT,
     val assistantId: Uuid = DEFAULT_ASSISTANT_ID,
     val providers: List<ProviderSetting> = DEFAULT_PROVIDERS,
+    // 用户主动删掉的内置提供商，读盘补齐默认值时跳过，避免删完又冒出来
+    val removedBuiltInProviderIds: Set<Uuid> = emptySet(),
     val assistants: List<Assistant> = DEFAULT_ASSISTANTS,
     val assistantTags: List<Tag> = emptyList(),
     val searchServices: List<SearchServiceOptions> = listOf(SearchServiceOptions.DEFAULT),
