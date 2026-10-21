@@ -57,7 +57,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -77,12 +76,9 @@ import me.rerere.hugeicons.stroke.Delete01
 import me.rerere.hugeicons.stroke.FileImport
 import me.rerere.hugeicons.stroke.Image02
 import me.rerere.hugeicons.stroke.Search01
-import me.rerere.hugeicons.stroke.Sparkles
-import me.rerere.hugeicons.stroke.Tick02
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.ui.components.ui.QRCodeScannerDialog
 import me.rerere.rikkahub.Screen
-import me.rerere.rikkahub.data.datastore.RECOMMENDED_PROVIDERS
 import me.rerere.rikkahub.ui.components.nav.BackButton
 import me.rerere.rikkahub.ui.components.ui.AutoAIIcon
 import me.rerere.rikkahub.ui.components.ui.ItemAction
@@ -159,12 +155,6 @@ fun SettingProviderPage(vm: SettingVM = koinViewModel()) {
                     BackButton()
                 },
                 actions = {
-                    // 推荐提供商保留固定 id，读盘后才能按 id 补回不落盘的描述
-                    RecommendProviderButton(
-                        addedIds = settings.providers.map { it.id }.toSet(),
-                    ) { provider ->
-                        addProvider(provider.copyProvider())
-                    }
                     ImportProviderButton {
                         addProvider(it.copyProvider(Uuid.random()))
                     }
@@ -254,124 +244,22 @@ fun SettingProviderPage(vm: SettingVM = koinViewModel()) {
         dismissText = stringResource(R.string.cancel),
         onConfirm = {
             deleteTarget?.let { target ->
-                vm.updateSettings { latest -> latest.copy(providers = latest.providers.filter { it.id != target.id }) }
+                vm.updateSettings { latest ->
+                    latest.copy(
+                        providers = latest.providers.filter { it.id != target.id },
+                        removedBuiltInProviderIds = if (target.builtIn) {
+                            latest.removedBuiltInProviderIds + target.id
+                        } else {
+                            latest.removedBuiltInProviderIds
+                        },
+                    )
+                }
             }
             deleteTarget = null
         },
         onDismiss = { deleteTarget = null },
     ) {
         Text(stringResource(R.string.setting_provider_page_delete_dialog_text))
-    }
-}
-
-@Composable
-private fun RecommendProviderButton(
-    addedIds: Set<Uuid>,
-    onAdd: (ProviderSetting) -> Unit
-) {
-    val toaster = LocalToaster.current
-    var showSheet by remember { mutableStateOf(false) }
-    val importSuccessMessage = stringResource(R.string.setting_provider_page_import_success)
-
-    IconButton(
-        onClick = { showSheet = true }
-    ) {
-        Icon(HugeIcons.Sparkles, contentDescription = stringResource(R.string.setting_provider_page_recommend))
-    }
-
-    if (showSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showSheet = false },
-            sheetState = rememberBottomSheetState(
-                initialValue = SheetValue.Hidden,
-                enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)
-            )
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp)
-                    .padding(bottom = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.setting_provider_page_recommend),
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-                Column(verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap)) {
-                    RECOMMENDED_PROVIDERS.fastForEachIndexed { index, provider ->
-                        RecommendProviderItem(
-                            provider = provider,
-                            added = provider.id in addedIds,
-                            shape = cardGroupItemShape(index, RECOMMENDED_PROVIDERS.size),
-                            onAdd = {
-                                onAdd(provider)
-                                toaster.show(
-                                    importSuccessMessage,
-                                    type = ToastType.Success
-                                )
-                            }
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun RecommendProviderItem(
-    provider: ProviderSetting,
-    added: Boolean,
-    shape: Shape,
-    onAdd: () -> Unit
-) {
-    Surface(
-        shape = shape,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, top = 12.dp, end = 8.dp, bottom = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    AutoAIIcon(
-                        name = provider.name,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Text(
-                        text = provider.name,
-                        style = MaterialTheme.typography.titleMediumEmphasized,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                ProvideTextStyle(MaterialTheme.typography.labelSmall) {
-                    CompositionLocalProvider(LocalContentColor provides LocalContentColor.current.copy(alpha = 0.7f)) {
-                        provider.shortDescription()
-                    }
-                }
-            }
-            FilledTonalIconButton(onClick = onAdd, enabled = !added) {
-                if (added) {
-                    Icon(HugeIcons.Tick02, contentDescription = "已添加")
-                } else {
-                    Icon(HugeIcons.Add01, contentDescription = stringResource(R.string.setting_provider_page_add))
-                }
-            }
-        }
     }
 }
 
@@ -716,11 +604,6 @@ private fun ProviderItem(
                             )
                         )
                     }
-                    if (provider.name == "AiHubMix") {
-                        Tag(type = TagType.INFO) {
-                            Text("10% 优惠")
-                        }
-                    }
                 }
             }
             ItemActionMenu(
@@ -729,7 +612,6 @@ private fun ProviderItem(
                         text = stringResource(R.string.delete),
                         icon = HugeIcons.Delete01,
                         destructive = true,
-                        enabled = !provider.builtIn,
                         onClick = onDelete,
                     ),
                 )

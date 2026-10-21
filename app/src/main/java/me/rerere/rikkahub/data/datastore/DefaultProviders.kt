@@ -44,7 +44,7 @@ val DEFAULT_PROVIDERS = listOf(
                     append("提供 OpenAI、Claude、Google Gemini 等主流模型的高并发和稳定服务")
                     appendLine()
                     append("官网：")
-                    withLink(LinkAnnotation.Url("https://aihubmix.com?aff=pG7r")) {
+                    withLink(LinkAnnotation.Url("https://aihubmix.com")) {
                         withStyle(SpanStyle(MaterialTheme.colorScheme.primary)) {
                             append("https://aihubmix.com")
                         }
@@ -77,7 +77,7 @@ val DEFAULT_PROVIDERS = listOf(
                 text = buildAnnotatedString {
                     append("APIMart 是专注 AI 图片/视频生成的低价 API 平台，GPT-Image-2 低至 $0.006/张，1 美元可出图 160+ 张。图片、视频一套异步 API 通吃，提交任务拿 ID、回调取结果，跑批万张不超时、换模型不改代码。按量付费、无月费。")
                     appendLine()
-                    withLink(LinkAnnotation.Url("https://go.apimart.ai/gh-rikkahub")) {
+                    withLink(LinkAnnotation.Url("https://apimart.ai")) {
                         withStyle(SpanStyle(MaterialTheme.colorScheme.primary)) {
                             append("通过此注册链接注册即可开用")
                         }
@@ -261,7 +261,7 @@ val DEFAULT_PROVIDERS = listOf(
                 text = buildAnnotatedString {
                     append("MaruCode 是一家偶尔做做慈善的小破站 API，自营号池，主要提供 Codex、Claude Code、GPT Image 等主流模型，支持 Websocket 协议，明码标价(Codex 0.25x, CC 1.5x)，透明汇率(1:1)。")
                     appendLine()
-                    withLink(LinkAnnotation.Url("https://api.muteki.site/register?aff=Rikkahub&promo=Rikkahub")) {
+                    withLink(LinkAnnotation.Url("https://api.muteki.site/register")) {
                         withStyle(SpanStyle(MaterialTheme.colorScheme.primary)) {
                             append("新用户注册送 2 刀")
                         }

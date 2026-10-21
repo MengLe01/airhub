@@ -4,28 +4,29 @@ package me.rerere.rikkahub.data.datastore
 internal fun Settings.normalized(): Settings =
     withBuiltInDefaults().withoutInvalidReferences().withValuesInRange()
 
-// 补齐缺失的内置提供商/助手/TTS，内置提供商和推荐提供商的描述信息始终以代码里的为准
+// 补齐缺失的内置提供商/助手/TTS，内置提供商的描述信息始终以代码里的为准
 internal fun Settings.withBuiltInDefaults(): Settings {
-    var providers = this.providers.ifEmpty { DEFAULT_PROVIDERS }.toMutableList()
+    val removedProviderIds = this.removedBuiltInProviderIds
+    // 全部删空时只有没删过内置提供商才回落到默认列表，否则删完又会被填回来
+    var providers = (
+        if (this.providers.isEmpty() && removedProviderIds.isEmpty()) {
+            DEFAULT_PROVIDERS
+        } else {
+            this.providers
+        }
+    ).toMutableList()
     DEFAULT_PROVIDERS.forEach { defaultProvider ->
-        if (providers.none { it.id == defaultProvider.id }) {
+        if (removedProviderIds.none { it == defaultProvider.id } && providers.none { it.id == defaultProvider.id }) {
             providers.add(defaultProvider.copyProvider())
         }
     }
     providers = providers.map { provider ->
         val defaultProvider = DEFAULT_PROVIDERS.find { it.id == provider.id }
-        val recommendedProvider = RECOMMENDED_PROVIDERS.find { it.id == provider.id }
         when {
             defaultProvider != null -> provider.copyProvider(
                 builtIn = defaultProvider.builtIn,
                 description = defaultProvider.description,
                 shortDescription = defaultProvider.shortDescription,
-            )
-
-            // 描述不落盘，从推荐列表添加的提供商读盘后按 id 补回
-            recommendedProvider != null -> provider.copyProvider(
-                description = recommendedProvider.description,
-                shortDescription = recommendedProvider.shortDescription,
             )
 
             else -> provider
@@ -38,10 +39,9 @@ internal fun Settings.withBuiltInDefaults(): Settings {
         }
     }
     val ttsProviders = this.ttsProviders.ifEmpty { DEFAULT_TTS_PROVIDERS }.toMutableList()
-    DEFAULT_TTS_PROVIDERS.forEach { defaultTTSProvider ->
-        if (ttsProviders.none { provider -> provider.id == defaultTTSProvider.id }) {
-            ttsProviders.add(defaultTTSProvider.copyProvider())
-        }
+    // 只补回系统 TTS：删掉当前使用的服务后要退回它。其余默认服务允许用户删掉，删了不再冒出来
+    if (ttsProviders.none { provider -> provider.id == DEFAULT_SYSTEM_TTS_ID }) {
+        ttsProviders.add(DEFAULT_TTS_PROVIDERS.first { it.id == DEFAULT_SYSTEM_TTS_ID }.copyProvider())
     }
     return copy(
         providers = providers,

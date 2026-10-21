@@ -323,7 +323,6 @@
   <string name="error_title_translate_message">訊息翻譯失敗</string>
   <string name="expand_translation">展開翻譯</string>
   <string name="export_cancel">取消</string>
-  <string name="export_image_warning">「以上內容由人工智慧生成，可能包含不準確之處。」</string>
   <string name="export_import_failed">匯入失敗：%s</string>
   <string name="export_import_success">匯入成功</string>
   <string name="export_share">分享</string>

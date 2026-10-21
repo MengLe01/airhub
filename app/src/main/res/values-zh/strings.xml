@@ -326,7 +326,6 @@
   <string name="error_title_translate_message">消息翻译失败</string>
   <string name="expand_translation">展开翻译</string>
   <string name="export_cancel">取消</string>
-  <string name="export_image_warning">以上内容由人工智能生成，可能包含不准确信息。</string>
   <string name="export_import_failed">导入失败：%s</string>
   <string name="export_import_success">导入成功</string>
   <string name="export_share">分享</string>
