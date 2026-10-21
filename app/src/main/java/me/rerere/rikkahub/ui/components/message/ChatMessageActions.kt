@@ -4,24 +4,22 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
-import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.ListItemDefaults
-import androidx.compose.material3.LocalMinimumInteractiveComponentSize
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -30,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -66,7 +65,6 @@ import me.rerere.rikkahub.utils.removeBracketedContent
 import me.rerere.rikkahub.utils.toLocalString
 import me.rerere.rikkahub.utils.toMessageTimeString
 import me.rerere.ui.components.RikkaConfirmDialog
-import java.util.Locale
 
 @Composable
 fun ColumnScope.ChatMessageActionButtons(
@@ -74,14 +72,12 @@ fun ColumnScope.ChatMessageActionButtons(
     node: MessageNode,
     onUpdate: (MessageNode) -> Unit,
     onRegenerate: () -> Unit,
+    onEdit: () -> Unit,
     onOpenActionSheet: () -> Unit,
-    onTranslate: ((UIMessage, Locale) -> Unit)? = null,
-    onClearTranslation: (UIMessage) -> Unit = {},
 ) {
     val context = LocalContext.current
     val settings = LocalSettings.current
     var isPendingDelete by remember { mutableStateOf(false) }
-    var showTranslateDialog by remember { mutableStateOf(false) }
     var showRegenerateConfirm by remember { mutableStateOf(false) }
 
     LaunchedEffect(isPendingDelete) {
@@ -114,53 +110,11 @@ fun ColumnScope.ChatMessageActionButtons(
         )
 
         if (message.role == MessageRole.ASSISTANT) {
-            val tts = LocalTTSState.current
-            val isSpeaking by tts.isSpeaking.collectAsState()
-            val isAvailable by tts.isAvailable.collectAsState()
-            // 朗读中换成带底色的方角按钮
-            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
-                IconToggleButton(
-                    checked = isSpeaking,
-                    onCheckedChange = { speak ->
-                        if (speak) {
-                            val text = message.toText()
-                            var textToSpeak = text
-                            if (settings.displaySetting.ttsOnlyReadQuoted) {
-                                textToSpeak = textToSpeak.extractQuotedContentAsText() ?: textToSpeak
-                            }
-                            if (settings.displaySetting.ttsOnlyReadOutsideBrackets) {
-                                textToSpeak = textToSpeak.removeBracketedContent() ?: textToSpeak
-                            }
-                            tts.speak(textToSpeak)
-                        } else {
-                            tts.stop()
-                        }
-                    },
-                    shapes = IconButtonDefaults.toggleableShapes(),
-                    modifier = Modifier.size(IconButtonDefaults.extraSmallContainerSize()),
-                    enabled = isAvailable,
-                    colors = IconButtonDefaults.iconToggleButtonColors(
-                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        checkedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        checkedContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    ),
-                ) {
-                    Icon(
-                        imageVector = if (isSpeaking) HugeIcons.StopCircle else HugeIcons.VolumeHigh,
-                        contentDescription = stringResource(R.string.tts),
-                        modifier = Modifier.size(ActionIconSize),
-                    )
-                }
-            }
-
-            // Translation button
-            if (onTranslate != null) {
-                ChatMessageActionButton(
-                    icon = HugeIcons.Translate,
-                    contentDescription = stringResource(R.string.translate),
-                    onClick = { showTranslateDialog = true },
-                )
-            }
+            ChatMessageActionButton(
+                icon = HugeIcons.Edit01,
+                contentDescription = stringResource(R.string.edit),
+                onClick = onEdit,
+            )
         }
 
         ChatMessageActionButton(
@@ -175,50 +129,24 @@ fun ColumnScope.ChatMessageActionButtons(
         )
 
         if (settings.displaySetting.showDateTimeInMessage) {
-            Text(
+            MessageMetadataText(
                 text = message.createdAt.toJavaLocalDateTime().toMessageTimeString(),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                maxLines = 1,
-                modifier = Modifier.padding(horizontal = 4.dp),
+                color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f),
             )
         }
 
         if (settings.displaySetting.showCharacterCountInMessage) {
-            val characterCount = remember(message.parts) {
-                message.parts
-                    .filterIsInstance<UIMessagePart.Text>()
-                    .sumOf { it.text.characterCount() }
-            }
+            val characterCount = remember(message.parts) { message.textCharacterCount() }
             if (characterCount > 0) {
-                Text(
+                MessageMetadataText(
                     text = stringResource(
                         R.string.chat_message_character_count,
                         characterCount,
                     ),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    maxLines = 1,
+                    color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f),
                 )
             }
         }
-    }
-
-    // Translation dialog
-    if (showTranslateDialog && onTranslate != null) {
-        LanguageSelectionDialog(
-            onLanguageSelected = { language ->
-                showTranslateDialog = false
-                onTranslate(message, language)
-            },
-            onClearTranslation = {
-                showTranslateDialog = false
-                onClearTranslation(message)
-            },
-            onDismissRequest = {
-                showTranslateDialog = false
-            },
-        )
     }
 
     // Regenerate confirmation dialog
@@ -236,6 +164,26 @@ fun ColumnScope.ChatMessageActionButtons(
     )
 }
 
+@Composable
+private fun MessageMetadataText(
+    text: String,
+    color: Color = LocalContentColor.current,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        color = color,
+        maxLines = 1,
+        modifier = modifier,
+    )
+}
+
+private fun UIMessage.textCharacterCount(): Int {
+    return parts.filterIsInstance<UIMessagePart.Text>()
+        .sumOf { it.text.characterCount() }
+}
+
 private val ActionIconSize = 18.dp
 
 // 消息下方的小号图标按钮，按下时圆形收成方角
@@ -247,29 +195,27 @@ internal fun ChatMessageActionButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
-    // 按钮排得密，不让 48dp 的最小触控尺寸把间距撑开
-    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
-        IconButton(
-            onClick = onClick,
-            shapes = IconButtonDefaults.shapes(),
-            modifier = modifier.size(IconButtonDefaults.extraSmallContainerSize()),
-            enabled = enabled,
-            colors = IconButtonDefaults.iconButtonColors(
-                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            ),
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = contentDescription,
-                modifier = Modifier.size(ActionIconSize),
-            )
-        }
+    IconButton(
+        onClick = onClick,
+        shapes = IconButtonDefaults.shapes(),
+        modifier = modifier.size(IconButtonDefaults.extraSmallContainerSize()),
+        enabled = enabled,
+        colors = IconButtonDefaults.iconButtonColors(
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        ),
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            modifier = Modifier.size(ActionIconSize),
+        )
     }
 }
 
 private class MessageSheetAction(
     val icon: ImageVector,
     val label: String,
+    val enabled: Boolean = true,
     val destructive: Boolean = false,
     val onClick: () -> Unit,
 )
@@ -279,15 +225,21 @@ fun ChatMessageActionsSheet(
     message: UIMessage,
     model: Model?,
     onDelete: () -> Unit,
-    onEdit: () -> Unit,
     onShare: () -> Unit,
     onFork: () -> Unit,
     onSelectAndCopy: () -> Unit,
+    onTranslateRequest: (() -> Unit)? = null,
     isFavorite: Boolean = false,
     onToggleFavorite: (() -> Unit)? = null,
     onWebViewPreview: () -> Unit,
     onDismissRequest: () -> Unit
 ) {
+    val tts = LocalTTSState.current
+    val isSpeaking by tts.isSpeaking.collectAsState()
+    val isAvailable by tts.isAvailable.collectAsState()
+    val settings = LocalSettings.current
+    val characterCount = remember(message.parts) { message.textCharacterCount() }
+
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)),
@@ -300,7 +252,39 @@ fun ChatMessageActionsSheet(
             if (hasTextContent) {
                 add(MessageSheetAction(HugeIcons.WebDesign01, stringResource(R.string.render_with_webview), onClick = onWebViewPreview))
             }
-            add(MessageSheetAction(HugeIcons.Edit01, stringResource(R.string.edit), onClick = onEdit))
+            add(
+                MessageSheetAction(
+                    icon = if (isSpeaking) HugeIcons.StopCircle else HugeIcons.VolumeHigh,
+                    label = stringResource(
+                        if (isSpeaking) R.string.stop_reading else R.string.read_aloud
+                    ),
+                    enabled = isAvailable,
+                    onClick = {
+                        if (!isSpeaking) {
+                            val text = message.toText()
+                            var textToSpeak = text
+                            if (settings.displaySetting.ttsOnlyReadQuoted) {
+                                textToSpeak = textToSpeak.extractQuotedContentAsText() ?: textToSpeak
+                            }
+                            if (settings.displaySetting.ttsOnlyReadOutsideBrackets) {
+                                textToSpeak = textToSpeak.removeBracketedContent() ?: textToSpeak
+                            }
+                            tts.speak(textToSpeak)
+                        } else {
+                            tts.stop()
+                        }
+                    },
+                )
+            )
+            if (onTranslateRequest != null) {
+                add(
+                    MessageSheetAction(
+                        icon = HugeIcons.Translate,
+                        label = stringResource(R.string.translate),
+                        onClick = onTranslateRequest,
+                    )
+                )
+            }
             add(MessageSheetAction(HugeIcons.Share04, stringResource(R.string.share), onClick = onShare))
             add(MessageSheetAction(HugeIcons.GitFork, stringResource(R.string.create_fork), onClick = onFork))
             if (onToggleFavorite != null) {
@@ -334,6 +318,7 @@ fun ChatMessageActionsSheet(
                             onDismissRequest()
                             action.onClick()
                         },
+                        enabled = action.enabled,
                         shapes = ListItemDefaults.segmentedShapes(index = index, count = actions.size),
                         colors = if (action.destructive) {
                             ListItemDefaults.segmentedColors(
@@ -358,11 +343,20 @@ fun ChatMessageActionsSheet(
 
             // Message Info
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                ProvideTextStyle(MaterialTheme.typography.labelSmall) {
-                    Text(message.createdAt.toJavaLocalDateTime().toLocalString())
-                    if (model != null) {
-                        Text(model.displayName)
-                    }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    MessageMetadataText(message.createdAt.toJavaLocalDateTime().toLocalString())
+                    MessageMetadataText(
+                        stringResource(
+                            R.string.chat_message_character_count,
+                            characterCount,
+                        )
+                    )
+                }
+                if (model != null) {
+                    MessageMetadataText(model.displayName)
                 }
             }
         }
