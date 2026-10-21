@@ -25,6 +25,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import me.rerere.ai.provider.ModelType
+import me.rerere.ai.provider.Modality
 import me.rerere.hugeicons.HugeIcons
 import me.rerere.hugeicons.stroke.AiBrain01
 import me.rerere.hugeicons.stroke.AiEditing
@@ -143,6 +144,7 @@ private fun ModelSettingsPage(settings: Settings, vm: SettingVM, contentPadding:
         modelId = settings.ocrModelId,
         providers = settings.providers,
         type = ModelType.CHAT,
+        modelFilter = { Modality.IMAGE in it.inputModalities },
     )
 
     LazyColumn(

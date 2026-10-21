@@ -632,6 +632,13 @@ private fun ModelSettingsForm(
                             }
                         )
 
+                        ModelVisibilitySwitch(
+                            isHidden = model.isHidden,
+                            onHiddenChange = {
+                                onModelChange(model.copy(isHidden = it))
+                            }
+                        )
+
                         ModelTypeSelector(
                             selectedType = model.type,
                             onTypeSelected = {
@@ -1059,6 +1066,27 @@ private fun ModelPicker(
 }
 
 @Composable
+private fun ModelVisibilitySwitch(
+    isHidden: Boolean,
+    onHiddenChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.setting_provider_page_is_hidden),
+            style = MaterialTheme.typography.titleSmall,
+        )
+        Switch(
+            checked = isHidden,
+            onCheckedChange = onHiddenChange,
+        )
+    }
+}
+
+@Composable
 private fun ModelTypeSelector(
     selectedType: ModelType,
     onTypeSelected: (ModelType) -> Unit
@@ -1319,7 +1347,12 @@ private fun ModelCard(
         modifier = modifier,
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = CustomColors.listItemColors.containerColor
+            // 隐藏的模型整行换成错误色，和禁用的提供商一样一眼能看出来
+            containerColor = if (model.isHidden) {
+                MaterialTheme.colorScheme.errorContainer
+            } else {
+                CustomColors.listItemColors.containerColor
+            },
         ),
     ) {
         Row(
