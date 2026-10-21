@@ -183,6 +183,12 @@ fun SettingPreferencesUIPage(vm: SettingVM = koinViewModel()) {
                         headlineContent = { Text(stringResource(R.string.setting_display_page_show_datetime_in_message_title)) },
                     )
                     switchItem(
+                        checked = displaySetting.showCharacterCountInMessage,
+                        onCheckedChange = { updateDisplaySetting(displaySetting.copy(showCharacterCountInMessage = it)) },
+                        supportingContent = { Text(stringResource(R.string.setting_display_page_show_character_count_in_message_desc)) },
+                        headlineContent = { Text(stringResource(R.string.setting_display_page_show_character_count_in_message_title)) },
+                    )
+                    switchItem(
                         checked = displaySetting.showTokenUsage,
                         onCheckedChange = { updateDisplaySetting(displaySetting.copy(showTokenUsage = it)) },
                         supportingContent = { Text(stringResource(R.string.setting_display_page_show_token_usage_desc)) },
