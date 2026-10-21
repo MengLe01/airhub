@@ -118,6 +118,7 @@ fun ChatDrawerContent(
     val conversations = drawerVm.conversations.collectAsLazyPagingItems()
     val folders by drawerVm.folders.collectAsStateWithLifecycle()
     val selectedFolderId by drawerVm.selectedFolderId.collectAsStateWithLifecycle()
+    val sourceKey by drawerVm.sourceKey.collectAsStateWithLifecycle()
     val memoryDreaming by drawerVm.memoryDreaming.collectAsStateWithLifecycle()
     val conversationListState = rememberLazyListState(
         initialFirstVisibleItemIndex = drawerVm.scrollIndex,
@@ -135,9 +136,22 @@ fun ChatDrawerContent(
             }
     }
 
+    LaunchedEffect(sourceKey) {
+        if (sourceKey.isNotEmpty() && drawerVm.shouldScrollToTopForSource(sourceKey)) {
+            conversationListState.scrollToItem(0)
+        }
+    }
+
     val conversationJobs by vm.conversationJobs.collectAsStateWithLifecycle(
         initialValue = emptyMap(),
     )
+    val currentConversationIsGenerating = current.id in conversationJobs
+    LaunchedEffect(current.id, currentConversationIsGenerating, current.newConversation) {
+        if (currentConversationIsGenerating || current.newConversation) {
+            conversationListState.scrollToItem(0)
+        }
+    }
+
     // 昵称编辑状态
     val nicknameEditState = useEditState<String> { newNickname ->
         vm.updateSettings {
@@ -238,6 +252,7 @@ fun ChatDrawerContent(
                 conversationJobs = conversationJobs.keys,
                 listState = conversationListState,
                 header = if (scrollableHeader) drawerHeader else null,
+                sourceKey = sourceKey,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),

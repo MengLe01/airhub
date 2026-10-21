@@ -82,6 +82,9 @@ fun ColumnScope.ConversationList(
     conversationJobs: Collection<Uuid>,
     listState: LazyListState,
     modifier: Modifier = Modifier,
+    // 当前列表的来源（助手 + 文件夹）。切换来源时 key 全变，日期标题按新 item 淡入，
+    // 不会被 LazyColumn 当成同一个 item 播放位移动画
+    sourceKey: String = "",
     header: (@Composable () -> Unit)? = null,
     onClick: (Conversation) -> Unit = {},
     onDelete: (Conversation) -> Unit = {},
@@ -90,25 +93,6 @@ fun ColumnScope.ConversationList(
     onMoveToAssistant: (Conversation) -> Unit = {},
     onMoveToFolder: (Conversation) -> Unit = {}
 ) {
-    var hasScrolledToCurrent by remember(current.id) { mutableStateOf(false) }
-    // 列表顶部若放了 header，会话项在 LazyColumn 中的位置要往后挪一位
-    val headerCount = if (header != null) 1 else 0
-
-    LaunchedEffect(current.id, conversations.itemCount, hasScrolledToCurrent) {
-        if (hasScrolledToCurrent) return@LaunchedEffect
-        val itemIndex = conversations.itemSnapshotList.items.indexOfFirst {
-            (it as? ConversationListItem.Item)?.conversation?.id == current.id
-        }
-        if (itemIndex >= 0) {
-            val currentIndex = itemIndex + headerCount
-            val isVisible = listState.layoutInfo.visibleItemsInfo.any { it.index == currentIndex }
-            if (!isVisible) {
-                listState.scrollToItem(currentIndex)
-            }
-            hasScrolledToCurrent = true
-        }
-    }
-
     LazyColumn(
         state = listState,
         modifier = modifier,
@@ -147,7 +131,7 @@ fun ColumnScope.ConversationList(
                     // key 带上来源与排序方式：切换助手/文件夹时 key 全变，日期标题按新条目淡入；
                     // 切换排序时也按新条目处理，避免锚定到另一种排序下的同名分组
                     stickyHeader(
-                        key = "date_${snapshotItem.sortOrder}_${snapshotItem.key}"
+                        key = "${sourceKey}_date_${snapshotItem.sortOrder}_${snapshotItem.key}"
                     ) {
                         val header =
                             conversations[index] as? ConversationListItem.DateHeader
@@ -157,14 +141,14 @@ fun ColumnScope.ConversationList(
                 }
 
                 is ConversationListItem.PinnedHeader -> {
-                    stickyHeader(key = "pinned_header") {
+                    stickyHeader(key = "${sourceKey}_pinned_header") {
                         conversations[index]
                         PinnedHeader()
                     }
                 }
 
                 is ConversationListItem.Item -> {
-                    item(key = snapshotItem.conversation.id.toString()) {
+                    item(key = "${sourceKey}_${snapshotItem.conversation.id}") {
                         val item = conversations[index] as? ConversationListItem.Item
                             ?: return@item
                         ConversationItem(
@@ -184,7 +168,7 @@ fun ColumnScope.ConversationList(
 
                 null -> {
                     // Placeholder for loading state
-                    item(key = "placeholder_$index") {
+                    item(key = "${sourceKey}_placeholder_$index") {
                         conversations[index]
                     }
                 }
