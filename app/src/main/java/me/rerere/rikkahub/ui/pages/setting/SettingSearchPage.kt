@@ -134,7 +134,6 @@ fun SettingSearchPage(vm: SettingVM = koinViewModel()) {
                         onDelete = {
                             deleteTarget = service
                         },
-                        canDelete = settings.searchServices.size > 1,
                         modifier = Modifier
                             .animateItem()
                             .then(longPressReorder(isDragging))
@@ -180,7 +179,14 @@ fun SettingSearchPage(vm: SettingVM = koinViewModel()) {
         onConfirm = {
             deleteTarget?.let { target ->
                 vm.updateSettings { latest ->
-                    latest.copy(searchServices = latest.searchServices.filter { it.id != target.id })
+                    val remainingServices = latest.searchServices.filter { it.id != target.id }
+                    latest.copy(
+                        searchServices = remainingServices,
+                        searchServiceSelected = latest.searchServiceSelected.coerceIn(
+                            0,
+                            (remainingServices.size - 1).coerceAtLeast(0),
+                        ),
+                    )
                 }
             }
             deleteTarget = null
@@ -270,7 +276,6 @@ private fun SearchProviderCard(
     service: SearchServiceOptions,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    canDelete: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -309,7 +314,6 @@ private fun SearchProviderCard(
                         text = stringResource(R.string.delete),
                         icon = HugeIcons.Delete01,
                         destructive = true,
-                        enabled = canDelete,
                         onClick = onDelete,
                     ),
                 )
