@@ -323,7 +323,6 @@
   <string name="error_title_translate_message">Ошибка перевода сообщения</string>
   <string name="expand_translation">Развернуть перевод</string>
   <string name="export_cancel">Отмена</string>
-  <string name="export_image_warning">Приведённый выше контент сгенерирован искусственным интеллектом и может содержать неточности.</string>
   <string name="export_import_failed">Ошибка импорта: %s</string>
   <string name="export_import_success">Импорт выполнен успешно</string>
   <string name="export_share">Поделиться</string>

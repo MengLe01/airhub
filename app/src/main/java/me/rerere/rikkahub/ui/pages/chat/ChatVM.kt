@@ -48,7 +48,6 @@ import me.rerere.rikkahub.service.SessionActivity
 import me.rerere.rikkahub.ui.hooks.writeStringPreference
 import me.rerere.rikkahub.ui.hooks.ChatInputState
 import me.rerere.rikkahub.utils.UiState
-import me.rerere.rikkahub.utils.UpdateChecker
 import me.rerere.rikkahub.web.ApiException
 import java.util.Locale
 import kotlin.uuid.Uuid
@@ -60,7 +59,6 @@ class ChatVM(
     private val context: Application,
     private val settingsStore: SettingsStore,
     private val chatService: ChatService,
-    val updateChecker: UpdateChecker,
     private val filesManager: FilesManager,
     private val favoriteRepository: FavoriteRepository,
     private val backgroundShellManager: BackgroundShellManager,
@@ -218,22 +216,6 @@ class ChatVM(
         }
     }
 
-    // Update checker
-    val updateState = settingsStore.settingsFlow
-        .map { settings ->
-            !BuildConfig.IS_PLAY_STORE &&
-                !settings.init &&
-                settings.displaySetting.updateCheckDisabledUntilEpochMillis <= System.currentTimeMillis()
-        }
-        .distinctUntilChanged()
-        .flatMapLatest { enabled ->
-            if (enabled) updateChecker.updateState else flowOf(UiState.Loading)
-        }
-        .stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
-            UiState.Loading,
-        )
 
     /**
      * 处理消息发送
@@ -243,6 +225,7 @@ class ChatVM(
      */
     fun handleMessageSend(content: List<UIMessagePart>,answer: Boolean = true) {
         if (content.isEmptyInputMessage()) return
+
         chatService.sendMessage(_conversationId, content, answer)
     }
 
