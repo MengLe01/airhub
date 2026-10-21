@@ -1,6 +1,7 @@
 package me.rerere.rikkahub.ui.pages.chat
 
 import me.rerere.hugeicons.HugeIcons
+import me.rerere.hugeicons.stroke.Edit01
 import me.rerere.hugeicons.stroke.Folder01
 import me.rerere.hugeicons.stroke.Forward02
 import me.rerere.hugeicons.stroke.Pin
@@ -26,10 +27,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -52,6 +56,8 @@ import androidx.paging.compose.LazyPagingItems
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.datastore.ConversationSortOrder
 import me.rerere.rikkahub.data.model.Conversation
+import me.rerere.rikkahub.ui.hooks.EditStateContent
+import me.rerere.rikkahub.ui.hooks.useEditState
 import me.rerere.rikkahub.ui.theme.extendColors
 import me.rerere.rikkahub.utils.mirrorForRtl
 import me.rerere.rikkahub.utils.toLocalString
@@ -88,6 +94,7 @@ fun ColumnScope.ConversationList(
     header: (@Composable () -> Unit)? = null,
     onClick: (Conversation) -> Unit = {},
     onDelete: (Conversation) -> Unit = {},
+    onEditTitle: (Conversation, String) -> Unit = { _, _ -> },
     onRegenerateTitle: (Conversation) -> Unit = {},
     onPin: (Conversation) -> Unit = {},
     onMoveToAssistant: (Conversation) -> Unit = {},
@@ -157,6 +164,7 @@ fun ColumnScope.ConversationList(
                             loading = item.conversation.id in conversationJobs,
                             onClick = onClick,
                             onDelete = onDelete,
+                            onEditTitle = onEditTitle,
                             onRegenerateTitle = onRegenerateTitle,
                             onPin = onPin,
                             onMoveToAssistant = onMoveToAssistant,
@@ -221,6 +229,7 @@ private fun ConversationItem(
     loading: Boolean,
     modifier: Modifier = Modifier,
     onDelete: (Conversation) -> Unit = {},
+    onEditTitle: (Conversation, String) -> Unit = { _, _ -> },
     onRegenerateTitle: (Conversation) -> Unit = {},
     onPin: (Conversation) -> Unit = {},
     onMoveToAssistant: (Conversation) -> Unit = {},
@@ -236,6 +245,10 @@ private fun ConversationItem(
     }
     var showDropdownMenu by remember {
         mutableStateOf(false)
+    }
+    // 和聊天页点标题改名用的是同一套编辑状态与弹窗
+    val titleState = useEditState<String> { newTitle ->
+        onEditTitle(conversation, newTitle)
     }
     Box(
         modifier = modifier
@@ -300,6 +313,19 @@ private fun ConversationItem(
 
                 DropdownMenuItem(
                     text = {
+                        Text(stringResource(id = R.string.chat_page_manual_edit_title))
+                    },
+                    onClick = {
+                        titleState.open(conversation.title)
+                        showDropdownMenu = false
+                    },
+                    leadingIcon = {
+                        Icon(HugeIcons.Edit01, null)
+                    }
+                )
+
+                DropdownMenuItem(
+                    text = {
                         Text(stringResource(id = R.string.chat_page_regenerate_title))
                     },
                     onClick = {
@@ -351,5 +377,42 @@ private fun ConversationItem(
                 )
             }
         }
+    }
+
+    titleState.EditStateContent { title, onUpdate ->
+        AlertDialog(
+            onDismissRequest = {
+                titleState.dismiss()
+            },
+            title = {
+                Text(stringResource(R.string.chat_page_edit_title))
+            },
+            text = {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = onUpdate,
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        titleState.confirm()
+                    }
+                ) {
+                    Text(stringResource(R.string.chat_page_save))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        titleState.dismiss()
+                    }
+                ) {
+                    Text(stringResource(R.string.chat_page_cancel))
+                }
+            },
+        )
     }
 }

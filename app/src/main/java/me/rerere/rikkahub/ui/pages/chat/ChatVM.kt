@@ -278,6 +278,13 @@ class ChatVM(
         }
     }
 
+    // 侧边栏长按会话改名，改的是列表里的那条会话，不一定是当前打开的
+    fun updateConversationTitle(conversation: Conversation, title: String) {
+        viewModelScope.launch {
+            chatService.updateTitle(conversation.id, title)
+        }
+    }
+
     fun deleteConversation(conversation: Conversation): Job =
         viewModelScope.launch {
             chatService.deleteConversation(conversation.id)

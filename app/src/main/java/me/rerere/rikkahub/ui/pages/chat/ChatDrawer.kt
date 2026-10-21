@@ -265,6 +265,9 @@ fun ChatDrawerContent(
                 onClick = {
                     navigateToChatPage(navController, it.id)
                 },
+                onEditTitle = { conversation, title ->
+                    vm.updateConversationTitle(conversation, title)
+                },
                 onRegenerateTitle = {
                     vm.generateTitle(it, true)
                 },
