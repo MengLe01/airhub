@@ -59,12 +59,20 @@ fun ProviderConnectionTestDialog(
     val context = LocalContext.current
 
     var model by remember(internalProvider) {
-        mutableStateOf(internalProvider.models.firstOrNull { it.type == ModelType.CHAT })
+        mutableStateOf(
+            internalProvider.models.firstOrNull {
+                it.type == ModelType.CHAT && !it.isHidden
+            }
+        )
     }
     var nonStreamingState: UiState<String> by remember { mutableStateOf(UiState.Idle) }
     var streamingState: UiState<String> by remember { mutableStateOf(UiState.Idle) }
     var toolsState: UiState<String> by remember { mutableStateOf(UiState.Idle) }
     var streamingText by remember { mutableStateOf("") }
+    // 提供商可能整体被禁用，但测试连接时还是要能选它的模型
+    val providerForSelection = remember(internalProvider) {
+        internalProvider.copyProvider(enabled = true)
+    }
 
     fun resetStates() {
         nonStreamingState = UiState.Idle
@@ -82,8 +90,9 @@ fun ProviderConnectionTestDialog(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 ModelSelector(
                     modelId = model?.id,
-                    providers = listOf(internalProvider),
+                    providers = listOf(providerForSelection),
                     type = ModelType.CHAT,
+                    includeDisabledProviders = true,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     model = it
