@@ -72,6 +72,7 @@ import me.rerere.hugeicons.stroke.Sorting01
 import me.rerere.hugeicons.stroke.Sparkles
 import me.rerere.hugeicons.stroke.Tick01
 import me.rerere.hugeicons.stroke.TransactionHistory
+import me.rerere.rikkahub.BuildConfig
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.data.datastore.ConversationSortOrder
@@ -137,7 +138,6 @@ fun ChatDrawerContent(
     val conversationJobs by vm.conversationJobs.collectAsStateWithLifecycle(
         initialValue = emptyMap(),
     )
-
     // 昵称编辑状态
     val nicknameEditState = useEditState<String> { newNickname ->
         vm.updateSettings {
@@ -165,6 +165,7 @@ fun ChatDrawerContent(
     // Menu popup 状态
     var showMenuPopup by remember { mutableStateOf(false) }
 
+
     // 矮屏（如手表、横屏手机）上顶部固定会把会话列表挤没，改为跟随列表一起滚动
     val windowHeight = LocalWindowInfo.current.containerDpSize.height
     val scrollableHeader = windowHeight < 640.dp
@@ -175,69 +176,16 @@ fun ChatDrawerContent(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            DrawerEntry(
+                icon = HugeIcons.Search01,
+                text = stringResource(R.string.chat_page_search_chats),
+                onClick = { navController.navigate(Screen.MessageSearch) },
+            )
+
             BackupReminderCard(
                 settings = settings,
                 onClick = { navController.navigate(Screen.Backup) },
             )
-
-            // 用户头像和昵称自定义区域
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                UIAvatar(
-                    name = settings.displaySetting.userNickname.ifBlank { stringResource(R.string.user_default_name) },
-                    value = settings.displaySetting.userAvatar,
-                    onUpdate = { newAvatar ->
-                        vm.updateSettings {
-                            it.copy(
-                                displaySetting = it.displaySetting.copy(
-                                    userAvatar = newAvatar
-                                )
-                            )
-                        }
-                    },
-                    modifier = Modifier.size(50.dp),
-                )
-
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        Text(
-                            text = settings.displaySetting.userNickname.ifBlank { stringResource(R.string.user_default_name) },
-                            style = MaterialTheme.typography.titleMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.clickable {
-                                nicknameEditState.open(settings.displaySetting.userNickname)
-                            }
-                        )
-
-                        Icon(
-                            imageVector = HugeIcons.PencilEdit01,
-                            contentDescription = "Edit",
-                            modifier = Modifier
-                                .onClick {
-                                    nicknameEditState.open(settings.displaySetting.userNickname)
-                                }
-                                .size(LocalTextStyle.current.fontSize.toDp())
-                        )
-                    }
-                    Greeting(
-                        style = MaterialTheme.typography.labelMedium,
-                    )
-                }
-            }
-
-            DrawerActions(navController = navController)
 
             Row(
                 modifier = Modifier
@@ -266,7 +214,6 @@ fun ChatDrawerContent(
                                 )
                             )
                         }
-                        // 换排序后回到顶部，否则会停留在原来滚动到的位置
                         scope.launch { conversationListState.scrollToItem(0) }
                     },
                 )
@@ -347,6 +294,9 @@ fun ChatDrawerContent(
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
+                onOpenAssistantList = {
+                    navController.navigate(Screen.Assistant)
+                },
                 onClickSetting = {
                     val currentAssistantId = settings.assistantId
                     navController.navigate(Screen.AssistantDetail(id = currentAssistantId.toString()))
@@ -354,43 +304,93 @@ fun ChatDrawerContent(
             )
 
             Row(
-                horizontalArrangement = Arrangement.SpaceAround,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 8.dp)
             ) {
-                DrawerAction(
-                    icon = {
-                        Icon(
-                            imageVector = HugeIcons.LookTop,
-                            contentDescription = stringResource(R.string.assistant_page_title)
-                        )
-                    },
-                    label = {
-                        Text(stringResource(R.string.assistant_page_title))
-                    },
-                    onClick = {
-                        navController.navigate(Screen.Assistant)
-                    },
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(CircleShape)
+                        .clickable {
+                            nicknameEditState.open(settings.displaySetting.userNickname)
+                        }
+                        .padding(vertical = 4.dp)
+                ) {
+                    UIAvatar(
+                        name = settings.displaySetting.userNickname.ifBlank {
+                            stringResource(R.string.user_default_name)
+                        },
+                        value = settings.displaySetting.userAvatar,
+                        showEditBadge = false,
+                        onUpdate = { newAvatar ->
+                            vm.updateSettings {
+                                it.copy(
+                                    displaySetting = it.displaySetting.copy(userAvatar = newAvatar)
+                                )
+                            }
+                        },
+                        modifier = Modifier.size(40.dp),
+                    )
+
+                    Spacer(Modifier.width(8.dp))
+
+                    Text(
+                        text = settings.displaySetting.userNickname.ifBlank {
+                            stringResource(R.string.user_default_name)
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                }
 
                 Box {
                     DrawerAction(
-                        icon = {
-                            Icon(HugeIcons.Sparkles, "Menu")
-                        },
-                        label = {
-                            Text(stringResource(R.string.menu))
-                        },
-                        onClick = {
-                            showMenuPopup = true
-                        },
+                        icon = { Icon(HugeIcons.Sparkles, "Menu") },
+                        label = { Text(stringResource(R.string.menu)) },
+                        onClick = { showMenuPopup = true },
                     )
                     DropdownMenu(
                         expanded = showMenuPopup,
                         onDismissRequest = { showMenuPopup = false }
                     ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.chat_page_history)) },
+                            leadingIcon = { Icon(HugeIcons.TransactionHistory, null) },
+                            onClick = {
+                                showMenuPopup = false
+                                navController.navigate(Screen.History)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.favorite_page_title)) },
+                            leadingIcon = { Icon(HugeIcons.InLove, null) },
+                            onClick = {
+                                showMenuPopup = false
+                                navController.navigate(Screen.Favorite)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.stats_page_title)) },
+                            leadingIcon = { Icon(HugeIcons.ChartColumn, null) },
+                            onClick = {
+                                showMenuPopup = false
+                                navController.navigate(Screen.Stats)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.chat_page_menu_ai_translator)) },
+                            leadingIcon = { Icon(HugeIcons.LanguageCircle, null) },
+                            onClick = {
+                                showMenuPopup = false
+                                navController.navigate(Screen.Translator)
+                            }
+                        )
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.chat_page_menu_image_generation)) },
                             leadingIcon = { Icon(HugeIcons.Image02, null) },
@@ -399,43 +399,21 @@ fun ChatDrawerContent(
                                 navController.navigate(Screen.ImageGen)
                             }
                         )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.media_creation_title)) },
+                            leadingIcon = { Icon(HugeIcons.ImageToVideo, null) },
+                            onClick = {
+                                showMenuPopup = false
+                                navController.navigate(Screen.MediaCreationSessions)
+                            }
+                        )
                     }
                 }
 
                 DrawerAction(
-                    icon = {
-                        Icon(HugeIcons.InLove, stringResource(R.string.favorite_page_title))
-                    },
-                    label = {
-                        Text(stringResource(R.string.favorite_page_title))
-                    },
-                    onClick = {
-                        navController.navigate(Screen.Favorite)
-                    },
-                )
-
-                DrawerAction(
-                    icon = {
-                        Icon(HugeIcons.ChartColumn, "统计数据")
-                    },
-                    label = {
-                        Text("统计数据")
-                    },
-                    onClick = {
-                        navController.navigate(Screen.Stats)
-                    },
-                )
-
-                Spacer(Modifier.weight(1f))
-
-                DrawerAction(
-                    icon = {
-                        Icon(HugeIcons.Settings03, null)
-                    },
+                    icon = { Icon(HugeIcons.Settings03, null) },
                     label = { Text(stringResource(R.string.settings)) },
-                    onClick = {
-                        navController.navigate(Screen.Setting)
-                    },
+                    onClick = { navController.navigate(Screen.Setting) },
                 )
             }
         }
@@ -710,35 +688,6 @@ fun ChatDrawerContent(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun DrawerActions(navController: Navigator) {
-    Column {
-        // 历史记录入口，行尾是搜索入口
-        DrawerEntry(
-            icon = HugeIcons.TransactionHistory,
-            text = stringResource(R.string.chat_page_history),
-            onClick = { navController.navigate(Screen.History) },
-            trailingIcon = HugeIcons.Search01,
-            trailingDescription = stringResource(R.string.chat_page_search_chats),
-            onTrailingClick = { navController.navigate(Screen.MessageSearch) },
-        )
-
-        // 媒体创作入口
-        DrawerEntry(
-            icon = HugeIcons.ImageToVideo,
-            text = stringResource(R.string.media_creation_title),
-            onClick = { navController.navigate(Screen.MediaCreationSessions) },
-        )
-
-        // 翻译入口
-        DrawerEntry(
-            icon = HugeIcons.LanguageCircle,
-            text = stringResource(R.string.chat_page_menu_ai_translator),
-            onClick = { navController.navigate(Screen.Translator) },
-        )
     }
 }
 
