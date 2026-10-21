@@ -189,6 +189,12 @@ fun SettingPreferencesUIPage(vm: SettingVM = koinViewModel()) {
                         headlineContent = { Text(stringResource(R.string.setting_display_page_show_character_count_in_message_title)) },
                     )
                     switchItem(
+                        checked = displaySetting.enableSidebarDateGrouping,
+                        onCheckedChange = { updateDisplaySetting(displaySetting.copy(enableSidebarDateGrouping = it)) },
+                        supportingContent = { Text(stringResource(R.string.setting_display_page_sidebar_date_grouping_desc)) },
+                        headlineContent = { Text(stringResource(R.string.setting_display_page_sidebar_date_grouping_title)) },
+                    )
+                    switchItem(
                         checked = displaySetting.showTokenUsage,
                         onCheckedChange = { updateDisplaySetting(displaySetting.copy(showTokenUsage = it)) },
                         supportingContent = { Text(stringResource(R.string.setting_display_page_show_token_usage_desc)) },
