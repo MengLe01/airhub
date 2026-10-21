@@ -49,7 +49,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.paging.compose.LazyPagingItems
-import androidx.paging.compose.itemKey
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.datastore.ConversationSortOrder
 import me.rerere.rikkahub.data.model.Conversation
@@ -68,6 +67,7 @@ sealed class ConversationListItem {
         val date: LocalDate,
         val label: String,
         val sortOrder: ConversationSortOrder = ConversationSortOrder.UPDATE_TIME,
+        val key: String = date.toString(),
     ) : ConversationListItem()
     data object PinnedHeader : ConversationListItem()
     data class Item(
@@ -139,48 +139,54 @@ fun ColumnScope.ConversationList(
             }
         }
 
-        items(
-            count = conversations.itemCount,
-            key = conversations.itemKey { item ->
-                when (item) {
-                    // key 带上排序方式，避免切换排序后列表锚定到另一种排序下的同日期分组而发生跳动
-                    is ConversationListItem.DateHeader -> "date_${item.sortOrder}_${item.date}"
-                    is ConversationListItem.PinnedHeader -> "pinned_header"
-                    is ConversationListItem.Item -> item.conversation.id.toString()
-                }
-            }
-        ) { index ->
-            when (val item = conversations[index]) {
+        // 用索引遍历而不是 items( count )，因为 stickyHeader 只能在 LazyListScope 里按条目类型声明。
+        // peek 拿快照做类型判断，内容仍在 lambda 里取，保证分页的加载状态能被正确记录。
+        for (index in 0 until conversations.itemCount) {
+            when (val snapshotItem = conversations.peek(index)) {
                 is ConversationListItem.DateHeader -> {
-                    DateHeaderItem(
-                        label = item.label,
-                        modifier = Modifier.animateItem()
-                    )
+                    // key 带上来源与排序方式：切换助手/文件夹时 key 全变，日期标题按新条目淡入；
+                    // 切换排序时也按新条目处理，避免锚定到另一种排序下的同名分组
+                    stickyHeader(
+                        key = "date_${snapshotItem.sortOrder}_${snapshotItem.key}"
+                    ) {
+                        val header =
+                            conversations[index] as? ConversationListItem.DateHeader
+                                ?: snapshotItem
+                        DateHeaderItem(label = header.label)
+                    }
                 }
 
                 is ConversationListItem.PinnedHeader -> {
-                    PinnedHeader(
-                        modifier = Modifier.animateItem()
-                    )
+                    stickyHeader(key = "pinned_header") {
+                        conversations[index]
+                        PinnedHeader()
+                    }
                 }
 
                 is ConversationListItem.Item -> {
-                    ConversationItem(
-                        conversation = item.conversation,
-                        selected = item.conversation.id == current.id,
-                        loading = item.conversation.id in conversationJobs,
-                        onClick = onClick,
-                        onDelete = onDelete,
-                        onRegenerateTitle = onRegenerateTitle,
-                        onPin = onPin,
-                        onMoveToAssistant = onMoveToAssistant,
-                        onMoveToFolder = onMoveToFolder,
-                        modifier = Modifier.animateItem()
-                    )
+                    item(key = snapshotItem.conversation.id.toString()) {
+                        val item = conversations[index] as? ConversationListItem.Item
+                            ?: return@item
+                        ConversationItem(
+                            conversation = item.conversation,
+                            selected = item.conversation.id == current.id,
+                            loading = item.conversation.id in conversationJobs,
+                            onClick = onClick,
+                            onDelete = onDelete,
+                            onRegenerateTitle = onRegenerateTitle,
+                            onPin = onPin,
+                            onMoveToAssistant = onMoveToAssistant,
+                            onMoveToFolder = onMoveToFolder,
+                            modifier = Modifier.animateItem()
+                        )
+                    }
                 }
 
                 null -> {
                     // Placeholder for loading state
+                    item(key = "placeholder_$index") {
+                        conversations[index]
+                    }
                 }
             }
         }
