@@ -11,7 +11,6 @@ import me.rerere.hugeicons.stroke.File02
 import me.rerere.hugeicons.stroke.Image02
 import me.rerere.hugeicons.stroke.Search01
 import me.rerere.hugeicons.stroke.Wrench01
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -56,7 +55,6 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.compose.runtime.mutableStateListOf
 import androidx.navigation3.runtime.NavKey
@@ -482,29 +480,16 @@ private fun ExportedChatImage(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f, fill = false)) {
-                            Text(
-                                text = conversation.title,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                            )
-                            Text(
-                                text = "${LocalDateTime.now().toLocalString()}  rikka-ai.com",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        // Use painterResource for the logo
-                        val painter = painterResource(id = R.mipmap.ic_launcher_foreground)
-                        Image(
-                            painter = painter,
-                            contentDescription = "Logo",
-                            modifier = Modifier.size(60.dp)
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = conversation.title,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                        )
+                        Text(
+                            text = LocalDateTime.now().toLocalString(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
@@ -514,15 +499,6 @@ private fun ExportedChatImage(
                             message = message,
                             options = options,
                             prevMessage = messages.getOrNull(index - 1)
-                        )
-                    }
-
-                    // Watermark
-                    Column {
-                        Text(
-                            text = stringResource(R.string.export_image_warning),
-                            fontSize = 10.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
                         )
                     }
                 }
