@@ -65,6 +65,7 @@ import me.rerere.rikkahub.data.model.getChatModelOf
 import me.rerere.rikkahub.data.model.getStoredAssistantOf
 import me.rerere.rikkahub.data.model.insertContextCheckpoint
 import me.rerere.rikkahub.data.model.isAwaitingToolApproval
+import me.rerere.rikkahub.data.model.isConfigPinned
 import me.rerere.rikkahub.data.model.localFileUrls
 import me.rerere.rikkahub.data.model.replaceUserRegexes
 import me.rerere.rikkahub.data.model.selectBranch
@@ -895,7 +896,8 @@ class ChatService(
     ) {
         withLoadedSession(conversationId) { session ->
             val conversation = session.state.value
-            if (conversation.config != null) {
+            val currentSettings = settingsStore.awaitLoaded()
+            if (currentSettings.isConfigPinned(conversation)) {
                 session.updateMetadata(
                     transform = {
                         it.copy(

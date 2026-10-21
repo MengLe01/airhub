@@ -54,6 +54,8 @@
   <string name="assistant_page_chat_background_desc">设置助手聊天页面的背景图片</string>
   <string name="assistant_page_chat_model">聊天模型</string>
   <string name="assistant_page_chat_model_desc">设置助手的默认聊天模型，如果不设置，则使用全局默认聊天模型</string>
+  <string name="assistant_page_conversation_independent">对话独立设置</string>
+  <string name="assistant_page_conversation_independent_desc">把模型、思考等设置固定在对话上</string>
   <string name="assistant_page_clone">复制</string>
   <string name="assistant_page_confirm">确定</string>
   <string name="assistant_page_creative">创造</string>
