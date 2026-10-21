@@ -17,6 +17,9 @@ import kotlin.uuid.Uuid
 data class Assistant(
     val id: Uuid = Uuid.random(),
     val chatModelId: Uuid? = null, // 如果为null, 使用全局默认模型
+    // 把模型、思考深度、搜索等设置固定在对话上; null 表示关闭，对话跟着助手走。
+    // 非空代表这一次独立期，只有带着同一个 id 的快照才算数，每打开一次开关就换一个 id
+    val pinSessionId: Uuid? = null,
     val name: String = "",
     val avatar: Avatar = Avatar.Dummy,
     val useAssistantAvatar: Boolean = false, // 使用助手头像替代模型头像

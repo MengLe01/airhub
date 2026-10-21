@@ -226,6 +226,19 @@ internal fun AssistantBasicContent(
                     onClick = { modelListState.open() },
                 )
             }
+            switchItem(
+                checked = assistant.pinSessionId != null,
+                onCheckedChange = {
+                    onUpdate(
+                        assistant.copy(
+                            // 打开时换一个新 id，上一期的快照全部失效，所有对话从当前助手设置重新开始
+                            pinSessionId = if (it) Uuid.random() else null
+                        )
+                    )
+                },
+                supportingContent = { Text(stringResource(R.string.assistant_page_conversation_independent_desc)) },
+                headlineContent = { Text(stringResource(R.string.assistant_page_conversation_independent)) },
+            )
             item(
                 headlineContent = { Text(stringResource(R.string.assistant_page_thinking_budget)) },
                 trailingContent = {
