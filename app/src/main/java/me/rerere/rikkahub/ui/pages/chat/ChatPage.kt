@@ -119,6 +119,12 @@ fun ChatPage(id: Uuid, text: String?, files: List<Uri>, nodeId: Uuid? = null) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val softwareKeyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
+    // 只清焦点就够了：输入框失焦自己会收键盘。
+    // 不在这里主动 hide()：那个请求如果晚一步到，会把紧接着要弹的键盘掐掉
+    //（表现就是点了输入框没反应，再点几次又好了）。
+    val dismissInput: () -> Unit = remember(focusManager) {
+        { focusManager.clearFocus(force = true) }
+    }
 
     // Handle back press when drawer is open
     BackHandler(enabled = drawerState.isOpen) {
@@ -130,7 +136,8 @@ fun ChatPage(id: Uuid, text: String?, files: List<Uri>, nodeId: Uuid? = null) {
     // Clear input focus so popup transitions cannot reopen the keyboard.
     LaunchedEffect(drawerState.isOpen) {
         if (drawerState.isOpen) {
-            focusManager.clearFocus(force = true)
+            dismissInput()
+            // 抽屉是遮罩浮层，个别 ROM 清焦点后键盘不自己走，这里补一下
             softwareKeyboardController?.hide()
         }
     }
@@ -223,6 +230,7 @@ fun ChatPage(id: Uuid, text: String?, files: List<Uri>, nodeId: Uuid? = null) {
                     errors = errors,
                     onDismissError = { vm.dismissError(it) },
                     onClearAllErrors = { vm.clearAllErrors() },
+                    onDismissInput = dismissInput,
                 )
             }
         }
@@ -256,6 +264,7 @@ fun ChatPage(id: Uuid, text: String?, files: List<Uri>, nodeId: Uuid? = null) {
                     errors = errors,
                     onDismissError = { vm.dismissError(it) },
                     onClearAllErrors = { vm.clearAllErrors() },
+                    onDismissInput = dismissInput,
                 )
             }
             BackHandler(drawerState.isOpen) {
@@ -283,6 +292,7 @@ private fun ChatPageContent(
     errors: List<ChatError>,
     onDismissError: (Uuid) -> Unit,
     onClearAllErrors: () -> Unit,
+    onDismissInput: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val toaster = LocalToaster.current
@@ -475,6 +485,8 @@ private fun ChatPageContent(
                 onConversationSystemPromptChange = { newPrompt ->
                     vm.updateConversationSystemPrompt(newPrompt)
                 },
+                // 编辑消息时不收键盘，免得正在改的内容被打断
+                onDismissInput = { if (!inputState.isEditing()) onDismissInput() },
             )
         }
 

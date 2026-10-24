@@ -105,6 +105,8 @@ import me.rerere.rikkahub.service.ChatError
 import me.rerere.rikkahub.ui.components.message.ChatMessage
 import me.rerere.rikkahub.ui.components.ui.ErrorCardsDisplay
 import me.rerere.rikkahub.ui.hooks.ImeLazyListAutoScroller
+import me.rerere.rikkahub.ui.hooks.observeListGestures
+import me.rerere.rikkahub.ui.hooks.rememberListGestureState
 import me.rerere.rikkahub.ui.theme.ChatFontProvider
 import me.rerere.rikkahub.utils.plus
 import me.rerere.ui.components.ListSelectableItem
@@ -141,6 +143,7 @@ fun ChatList(
     onToolAnswer: ((toolCallId: String, answer: String) -> Unit)? = null,
     onToggleFavorite: ((MessageNode) -> Unit)? = null,
     onConversationSystemPromptChange: ((String?) -> Unit)? = null,
+    onDismissInput: () -> Unit = {},
 ) {
     AnimatedContent(
         targetState = previewMode,
@@ -183,6 +186,7 @@ fun ChatList(
                 onToolAnswer = onToolAnswer,
                 onToggleFavorite = onToggleFavorite,
                 onConversationSystemPromptChange = onConversationSystemPromptChange,
+                onDismissInput = onDismissInput,
             )
         }
     }
@@ -232,6 +236,7 @@ private fun ChatListNormal(
     onToolAnswer: ((toolCallId: String, answer: String) -> Unit)? = null,
     onToggleFavorite: ((MessageNode) -> Unit)? = null,
     onConversationSystemPromptChange: ((String?) -> Unit)? = null,
+    onDismissInput: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val loadingState by rememberUpdatedState(loading)
@@ -285,10 +290,18 @@ private fun ChatListNormal(
     var selecting by remember { mutableStateOf(false) }
     var showExportSheet by remember { mutableStateOf(false) }
 
-    // 自动跟随键盘：键盘抬起前在底部才跟随
+    val currentDismissInput by rememberUpdatedState(onDismissInput)
+    val gestureState = rememberListGestureState(
+        onBlankTap = { currentDismissInput() },
+        // 拖动列表说明用户在翻内容，顺手把键盘收起来（超过 slop 那一下直接通知，不用另挂观察者）
+        onDragStart = { currentDismissInput() },
+    )
+
+    // 自动跟随键盘：键盘抬起前在底部才跟随，手指按在列表上时不抢滚动
     ImeLazyListAutoScroller(
         lazyListState = state,
         isNearBottom = { isNearBottom() },
+        enabled = { !gestureState.isPressing },
     )
 
     val assistant = remember(
@@ -310,7 +323,8 @@ private fun ChatListNormal(
 
     Box(
         modifier = Modifier
-            .fillMaxSize(),
+            .fillMaxSize()
+            .observeListGestures(gestureState),
     ) {
         // 自动滚动到底部
         if (settings.displaySetting.enableAutoScroll) {
