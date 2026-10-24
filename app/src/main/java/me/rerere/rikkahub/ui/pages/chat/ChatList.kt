@@ -109,7 +109,6 @@ import me.rerere.rikkahub.ui.theme.ChatFontProvider
 import me.rerere.rikkahub.utils.plus
 import me.rerere.ui.components.ListSelectableItem
 import me.rerere.ui.components.Tooltip
-import kotlin.math.roundToInt
 import kotlin.uuid.Uuid
 
 private const val TAG = "ChatList"
@@ -260,13 +259,25 @@ private fun ChatListNormal(
         }
     }
 
-    fun List<LazyListItemInfo>.isAtBottom(): Boolean {
+    // 输入栏占掉的底部高度，组合时算一次，别在每帧的判定里反复换算
+    val inputBarHeightPx = with(density) { innerPadding.calculateBottomPadding().toPx() }
+    // 判定「在底部」允许的余量
+    val nearBottomSlackPx = with(density) { 48.dp.toPx() }
+
+    fun List<LazyListItemInfo>.isAtBottom(slackPx: Float = -8f): Boolean {
         val lastItem = lastOrNull() ?: return false
-        val inputBarHeight = with(density) { innerPadding.calculateBottomPadding().toPx() }
-        val lastPos = lastItem.offset + lastItem.size
-        val inputPos = (state.layoutInfo.viewportEndOffset - inputBarHeight.roundToInt())
-        // println("lastPos = $lastPos, inputPos = $inputPos  | ${lastPos <= inputPos - 8}")
-        return lastPos <= inputPos - 8
+        val inputTop = state.layoutInfo.viewportEndOffset - inputBarHeightPx
+        // 在底部时最后一条的下沿贴着输入栏顶部；往上翻会让它跑到下面去（值变大）
+        return lastItem.offset + lastItem.size <= inputTop + slackPx
+    }
+
+    // 键盘抬起前问一次：人在底部（留 48dp 余量）才跟着推内容
+    fun isNearBottom(): Boolean {
+        if (!state.canScrollForward) return true
+        val visibleItems = state.layoutInfo.visibleItemsInfo
+        // 最后一条已经翻出视野，肯定不算在底部
+        if (visibleItems.lastOrNull()?.index != state.layoutInfo.totalItemsCount - 1) return false
+        return visibleItems.isAtBottom(slackPx = nearBottomSlackPx)
     }
 
     // 聊天选择
@@ -274,8 +285,11 @@ private fun ChatListNormal(
     var selecting by remember { mutableStateOf(false) }
     var showExportSheet by remember { mutableStateOf(false) }
 
-    // 自动跟随键盘滚动
-    ImeLazyListAutoScroller(lazyListState = state)
+    // 自动跟随键盘：键盘抬起前在底部才跟随
+    ImeLazyListAutoScroller(
+        lazyListState = state,
+        isNearBottom = { isNearBottom() },
+    )
 
     val assistant = remember(
         settings.assistants,
