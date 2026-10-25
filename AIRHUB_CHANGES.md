@@ -1,6 +1,6 @@
 # AirHub 相对上游改了什么
 
-AirHub 是基于 [RikkaHub](https://github.com/rikkahub/rikkahub) 的二次开发版本，上游基线是 `2b522f99`。
+AirHub 是基于 [RikkaHub](https://github.com/rikkahub/rikkahub) 的二次开发版本，上游基线是 3.1.1（`ad2c4430`）。
 下面按功能区域列出改动的**结果**（不是提交记录），想看具体实现在哪个文件，按标题去代码里搜对应的关键词即可。
 
 上游原版的功能没有删减，除了最后「移除的上游内容」那一节里点名的东西。
@@ -58,7 +58,6 @@ AirHub 是基于 [RikkaHub](https://github.com/rikkahub/rikkahub) 的二次开�
 - 粘贴长文本为文件时，阈值可以直接输入数字
 - 新建助手默认不开启工具与思考
 - 助手没设头像时使用名称首字母作为默认头像，不再用随机渐变色块
-- 搜索服务可以删到只剩最后一个（以前至少留一个）
 - 备份与恢复页把 WebDAV 放在第一个标签
 - 「关于」那一行右侧的 QQ 群和 Discord 入口去掉
 - 语音设置里内置的 AiHubMix TTS 可以删除，删掉之后不会再被自动补回
