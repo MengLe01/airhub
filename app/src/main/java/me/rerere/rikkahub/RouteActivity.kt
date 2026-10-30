@@ -3,6 +3,7 @@ package me.rerere.rikkahub
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
@@ -248,9 +249,10 @@ class RouteActivity : ComponentActivity() {
                 openNewMediaCreation(backStack)
                 null
             }
-            Intent.ACTION_SEND -> Screen.ShareHandler(
-                text = intent.getStringExtra(Intent.EXTRA_TEXT).orEmpty(),
-                streamUri = intent.getStringExtra(Intent.EXTRA_STREAM),
+            Intent.ACTION_SEND, Intent.ACTION_SEND_MULTIPLE -> Screen.ShareHandler(
+                // 有些应用塞进来的是 SpannedString，按 CharSequence 取才不会丢
+                text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString().orEmpty(),
+                files = intent.shareStreamUris(),
             )
             Intent.ACTION_PROCESS_TEXT -> Screen.ShareHandler(
                 text = intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString().orEmpty(),
@@ -275,6 +277,31 @@ class RouteActivity : ComponentActivity() {
     private fun mediaCreationDestination(intent: Intent): Screen? {
         val sessionId = intent.getStringExtra(MediaCreationForegroundService.EXTRA_MEDIA_SESSION_ID) ?: return null
         return runCatching { Uuid.parse(sessionId) }.getOrNull()?.let { Screen.MediaCreation(it.toString()) }
+    }
+
+    /**
+     * 读取分享进来的附件。
+     *
+     * EXTRA_STREAM 的形态取决于分享方：ACTION_SEND 是单个 Uri，ACTION_SEND_MULTIPLE 是 Uri 列表，
+     * 我们自己的拍照快捷方式塞的是字符串。都不能按字符串硬读，否则拿到 null。
+     * 有些应用只把附件放在 ClipData 里，兜底再取一遍。
+     */
+    private fun Intent.shareStreamUris(): List<String> {
+        val uris = mutableListOf<String>()
+        when (val stream = extras?.get(Intent.EXTRA_STREAM)) {
+            is Uri -> uris.add(stream.toString())
+            is String -> uris.add(stream)
+            is ArrayList<*> -> stream.filterIsInstance<Uri>().mapTo(uris) { it.toString() }
+            is List<*> -> stream.filterIsInstance<Uri>().mapTo(uris) { it.toString() }
+        }
+        if (uris.isEmpty()) {
+            clipData?.let { clip ->
+                for (index in 0 until clip.itemCount) {
+                    clip.getItemAt(index).uri?.let { uris.add(it.toString()) }
+                }
+            }
+        }
+        return uris.distinct()
     }
 
     @OptIn(ExperimentalComposeUiApi::class)
@@ -372,7 +399,7 @@ class RouteActivity : ComponentActivity() {
                             entry<Screen.ShareHandler> { key ->
                                 ShareHandlerPage(
                                     text = key.text,
-                                    image = key.streamUri
+                                    files = key.files
                                 )
                             }
 
@@ -666,7 +693,7 @@ sealed interface Screen : NavKey {
     ) : Screen
 
     @Serializable
-    data class ShareHandler(val text: String, val streamUri: String? = null) : Screen
+    data class ShareHandler(val text: String, val files: List<String> = emptyList()) : Screen
 
     @Serializable
     data object History : Screen

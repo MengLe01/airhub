@@ -161,19 +161,36 @@ fun ChatPage(id: Uuid, text: String?, files: List<Uri>, nodeId: Uuid? = null) {
     // 初始化输入状态（处理传入的 files 和 text 参数）
     LaunchedEffect(files, text) {
         if (files.isNotEmpty()) {
-            val localFiles = filesManager.createChatFilesByContents(files)
-            val contentTypes = files.mapNotNull { file ->
-                filesManager.getFileMimeType(file)
-            }
             val parts = buildList {
-                localFiles.forEachIndexed { index, file ->
-                    val type = contentTypes.getOrNull(index)
-                    if (type?.startsWith("image/") == true) {
-                        add(UIMessagePart.Image(url = file.toString()))
-                    } else if (type?.startsWith("video/") == true) {
-                        add(UIMessagePart.Video(url = file.toString()))
-                    } else if (type?.startsWith("audio/") == true) {
-                        add(UIMessagePart.Audio(url = file.toString()))
+                // 逐个复制，保证类型和文件名跟复制后的文件一一对应（批量复制会跳过失败的，下标就错位了）
+                files.forEach { file ->
+                    val type = runCatching { filesManager.getFileMimeType(file) }.getOrNull()
+                    val name = runCatching { filesManager.getFileNameFromUri(file) }.getOrNull()
+                    val local = filesManager.createChatFilesByContents(listOf(file)).firstOrNull()
+                        ?: return@forEach
+                    when {
+                        type?.startsWith("image/") == true -> {
+                            add(UIMessagePart.Image(url = local.toString()))
+                        }
+
+                        type?.startsWith("video/") == true -> {
+                            add(UIMessagePart.Video(url = local.toString()))
+                        }
+
+                        type?.startsWith("audio/") == true -> {
+                            add(UIMessagePart.Audio(url = local.toString()))
+                        }
+
+                        else -> {
+                            add(
+                                UIMessagePart.Document(
+                                    url = local.toString(),
+                                    fileName = name?.takeIf { it.isNotBlank() }
+                                        ?: local.lastPathSegment.orEmpty(),
+                                    mime = type ?: "application/octet-stream",
+                                )
+                            )
+                        }
                     }
                 }
             }
