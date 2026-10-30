@@ -165,6 +165,17 @@
       android:name=".service.MemoryDreamForegroundService"
       android:exported="false"
       android:foregroundServiceType="dataSync" />
+    <!-- 通知栏下拉面板的「新建对话」磁贴，需要用户自己进编辑模式添加 -->
+    <service
+      android:name=".service.NewChatTileService"
+      android:exported="true"
+      android:icon="@drawable/ic_qs_new_chat"
+      android:label="@string/shortcut_new_chat"
+      android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+      <intent-filter>
+        <action android:name="android.service.quicksettings.action.QS_TILE" />
+      </intent-filter>
+    </service>
     <service
       android:name=".service.WebServerService"
       android:exported="false"
