@@ -81,7 +81,35 @@
 
         <category android:name="android.intent.category.DEFAULT" />
 
-        <data android:mimeType="text/plain" />
+        <!-- text/* 同时覆盖纯文本、markdown、csv、json 等 -->
+        <data android:mimeType="text/*" />
+        <data android:mimeType="image/*" />
+        <data android:mimeType="video/*" />
+        <data android:mimeType="application/pdf" />
+        <data android:mimeType="application/epub+zip" />
+        <data android:mimeType="application/msword" />
+        <data android:mimeType="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+        <data android:mimeType="application/vnd.ms-excel" />
+        <data android:mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+        <data android:mimeType="application/vnd.ms-powerpoint" />
+        <data android:mimeType="application/vnd.openxmlformats-officedocument.presentationml.presentation" />
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.SEND_MULTIPLE" />
+
+        <category android:name="android.intent.category.DEFAULT" />
+
+        <data android:mimeType="text/*" />
+        <data android:mimeType="image/*" />
+        <data android:mimeType="video/*" />
+        <data android:mimeType="application/pdf" />
+        <data android:mimeType="application/epub+zip" />
+        <data android:mimeType="application/msword" />
+        <data android:mimeType="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+        <data android:mimeType="application/vnd.ms-excel" />
+        <data android:mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+        <data android:mimeType="application/vnd.ms-powerpoint" />
+        <data android:mimeType="application/vnd.openxmlformats-officedocument.presentationml.presentation" />
       </intent-filter>
       <intent-filter>
         <action android:name="android.intent.action.PROCESS_TEXT" />
@@ -98,6 +126,12 @@
 
       <intent-filter>
         <action android:name="me.rerere.rikkahub.action.MEDIA_CREATION" />
+        <category android:name="android.intent.category.DEFAULT" />
+      </intent-filter>
+
+      <!-- 快捷方式「新建对话」：intent 没写 targetPackage，桌面按 action 隐式匹配，这里必须声明 -->
+      <intent-filter>
+        <action android:name="me.rerere.rikkahub.action.NEW_CHAT" />
         <category android:name="android.intent.category.DEFAULT" />
       </intent-filter>
 
@@ -135,6 +169,17 @@
       android:name=".service.MemoryDreamForegroundService"
       android:exported="false"
       android:foregroundServiceType="dataSync" />
+    <!-- 通知栏下拉面板的「新建对话」磁贴，需要用户自己进编辑模式添加 -->
+    <service
+      android:name=".service.NewChatTileService"
+      android:exported="true"
+      android:icon="@drawable/ic_qs_new_chat"
+      android:label="@string/shortcut_new_chat"
+      android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+      <intent-filter>
+        <action android:name="android.service.quicksettings.action.QS_TILE" />
+      </intent-filter>
+    </service>
     <service
       android:name=".service.WebServerService"
       android:exported="false"
