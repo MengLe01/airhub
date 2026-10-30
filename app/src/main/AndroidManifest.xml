@@ -129,6 +129,12 @@
         <category android:name="android.intent.category.DEFAULT" />
       </intent-filter>
 
+      <!-- 快捷方式「新建对话」：intent 没写 targetPackage，桌面按 action 隐式匹配，这里必须声明 -->
+      <intent-filter>
+        <action android:name="me.rerere.rikkahub.action.NEW_CHAT" />
+        <category android:name="android.intent.category.DEFAULT" />
+      </intent-filter>
+
       <meta-data
         android:name="android.app.shortcuts"
         android:resource="@xml/shortcuts" />
