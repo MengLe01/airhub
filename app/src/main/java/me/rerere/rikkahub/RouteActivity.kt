@@ -148,6 +148,7 @@ import kotlin.uuid.Uuid
 private const val TAG = "RouteActivity"
 private const val ACTION_TRANSLATE = "me.rerere.rikkahub.action.TRANSLATE"
 private const val ACTION_MEDIA_CREATION = "me.rerere.rikkahub.action.MEDIA_CREATION"
+private const val ACTION_NEW_CHAT = "me.rerere.rikkahub.action.NEW_CHAT"
 private const val EXTRA_CONVERSATION_ID = "conversationId"
 
 /** 打开指定会话的聊天页 */
@@ -238,6 +239,11 @@ class RouteActivity : ComponentActivity() {
         }
         val destination = when (intent.action) {
             ACTION_TRANSLATE -> Screen.Translator
+            ACTION_NEW_CHAT -> {
+                // 快捷方式新建对话：丢掉原来的页面栈，直接开一个空会话，和顶栏那个按钮的效果一致
+                backStack.clear()
+                Screen.Chat(Uuid.random().toString())
+            }
             ACTION_MEDIA_CREATION -> {
                 openNewMediaCreation(backStack)
                 null
