@@ -55,6 +55,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -104,7 +105,9 @@ import me.rerere.rikkahub.data.model.withConversation
 import me.rerere.rikkahub.service.ChatError
 import me.rerere.rikkahub.ui.components.message.ChatMessage
 import me.rerere.rikkahub.ui.components.ui.ErrorCardsDisplay
+import me.rerere.rikkahub.ui.hooks.ChatSelectionTracker
 import me.rerere.rikkahub.ui.hooks.ImeLazyListAutoScroller
+import me.rerere.rikkahub.ui.hooks.LocalChatSelectionTracker
 import me.rerere.rikkahub.ui.hooks.observeListGestures
 import me.rerere.rikkahub.ui.hooks.rememberListGestureState
 import me.rerere.rikkahub.ui.theme.ChatFontProvider
@@ -291,10 +294,16 @@ private fun ChatListNormal(
     var showExportSheet by remember { mutableStateOf(false) }
 
     val currentDismissInput by rememberUpdatedState(onDismissInput)
+    // 记录列表里有没有正在选中的文字。清焦点会把选区一起清掉
+    //（SelectionManager 在失焦时 onRelease），所以选着字的时候不能清。
+    val selectionTracker = remember { ChatSelectionTracker() }
     val gestureState = rememberListGestureState(
         onBlankTap = { currentDismissInput() },
         // 拖动列表说明用户在翻内容，顺手把键盘收起来（超过 slop 那一下直接通知，不用另挂观察者）
-        onDragStart = { currentDismissInput() },
+        // 正在选字时跳过：选中文字本身就会让输入框失焦、键盘自己收起，再 clearFocus 只会把选区清掉
+        onDragStart = {
+            if (!selectionTracker.hasSelection()) currentDismissInput()
+        },
     )
 
     // 自动跟随键盘：键盘抬起前在底部才跟随，手指按在列表上时不抢滚动
@@ -385,43 +394,45 @@ private fun ChatListNormal(
                         selectedKeys = selectedItems,
                         enabled = selecting,
                     ) {
-                        ChatMessage(
-                            node = node,
-                            model = node.currentMessage.modelId?.let(modelById::get)
-                                ?: node.currentMessage.snapshotModel(),
-                            assistant = assistant,
-                            loading = loading && index == lastMessageIndex,
-                            onRegenerate = {
-                                onRegenerate(node.currentMessage)
-                            },
-                            onEdit = {
-                                onEdit(node.currentMessage)
-                            },
-                            onFork = {
-                                onForkMessage(node.currentMessage)
-                            },
-                            onDelete = {
-                                onDelete(node.currentMessage)
-                            },
-                            onShare = {
-                                selecting = true  // 使用 CoroutineScope 延迟状态更新
-                                selectedItems.clear()
-                                selectedItems.addAll(conversation.messageNodes.map { it.id }
-                                    .subList(0, conversation.messageNodes.indexOf(node) + 1))
-                            },
-                            onUpdate = {
-                                onUpdateMessage(it)
-                            },
-                            isFavorite = node.isFavorite,
-                            onToggleFavorite = {
-                                onToggleFavorite?.invoke(node)
-                            },
-                            onTranslate = onTranslate,
-                            onClearTranslation = onClearTranslation,
-                            onToolApproval = onToolApproval,
-                            onToolAnswer = onToolAnswer,
-                            lastMessage = index == lastMessageIndex,
-                        )
+                        CompositionLocalProvider(LocalChatSelectionTracker provides selectionTracker) {
+                            ChatMessage(
+                                node = node,
+                                model = node.currentMessage.modelId?.let(modelById::get)
+                                    ?: node.currentMessage.snapshotModel(),
+                                assistant = assistant,
+                                loading = loading && index == lastMessageIndex,
+                                onRegenerate = {
+                                    onRegenerate(node.currentMessage)
+                                },
+                                onEdit = {
+                                    onEdit(node.currentMessage)
+                                },
+                                onFork = {
+                                    onForkMessage(node.currentMessage)
+                                },
+                                onDelete = {
+                                    onDelete(node.currentMessage)
+                                },
+                                onShare = {
+                                    selecting = true  // 使用 CoroutineScope 延迟状态更新
+                                    selectedItems.clear()
+                                    selectedItems.addAll(conversation.messageNodes.map { it.id }
+                                        .subList(0, conversation.messageNodes.indexOf(node) + 1))
+                                },
+                                onUpdate = {
+                                    onUpdateMessage(it)
+                                },
+                                isFavorite = node.isFavorite,
+                                onToggleFavorite = {
+                                    onToggleFavorite?.invoke(node)
+                                },
+                                onTranslate = onTranslate,
+                                onClearTranslation = onClearTranslation,
+                                onToolApproval = onToolApproval,
+                                onToolAnswer = onToolAnswer,
+                                lastMessage = index == lastMessageIndex,
+                            )
+                        }
                     }
                 }
             }

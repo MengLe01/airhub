@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.DisableSelection
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -72,6 +71,7 @@ import me.rerere.rikkahub.Screen
 import me.rerere.rikkahub.ui.context.LocalNavController
 import me.rerere.rikkahub.ui.context.LocalSettings
 import me.rerere.rikkahub.ui.context.Navigator
+import me.rerere.rikkahub.ui.hooks.TrackedSelectionContainer
 import me.rerere.rikkahub.ui.modifier.onClick
 import me.rerere.rikkahub.ui.theme.AtomOneDarkPalette
 import me.rerere.rikkahub.ui.theme.AtomOneLightPalette
@@ -261,7 +261,7 @@ private fun CodeBlockWithLineNumbersWrapped(
     val lineNumberWidth = remember(displayLines.size) {
         displayLines.size.toString().length
     }
-    SelectionContainer {
+    TrackedSelectionContainer {
         Column {
             displayLines.forEachIndexed { index, line ->
                 Row(
@@ -337,7 +337,7 @@ private fun CodeBlockDefault(
         }
 
         // 代码列
-        SelectionContainer {
+        TrackedSelectionContainer {
             CodeHighlightText(
                 code = displayCode,
                 language = language,
