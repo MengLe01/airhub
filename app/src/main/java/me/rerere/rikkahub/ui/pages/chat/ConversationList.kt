@@ -1,6 +1,7 @@
 package me.rerere.rikkahub.ui.pages.chat
 
 import me.rerere.hugeicons.HugeIcons
+import me.rerere.hugeicons.stroke.Edit01
 import me.rerere.hugeicons.stroke.Folder01
 import me.rerere.hugeicons.stroke.Forward02
 import me.rerere.hugeicons.stroke.Pin
@@ -26,10 +27,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -49,10 +53,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.paging.compose.LazyPagingItems
-import androidx.paging.compose.itemKey
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.data.datastore.ConversationSortOrder
 import me.rerere.rikkahub.data.model.Conversation
+import me.rerere.rikkahub.ui.hooks.EditStateContent
+import me.rerere.rikkahub.ui.hooks.useEditState
 import me.rerere.rikkahub.ui.theme.extendColors
 import me.rerere.rikkahub.utils.mirrorForRtl
 import me.rerere.rikkahub.utils.toLocalString
@@ -68,6 +73,7 @@ sealed class ConversationListItem {
         val date: LocalDate,
         val label: String,
         val sortOrder: ConversationSortOrder = ConversationSortOrder.UPDATE_TIME,
+        val key: String = date.toString(),
     ) : ConversationListItem()
     data object PinnedHeader : ConversationListItem()
     data class Item(
@@ -85,6 +91,7 @@ fun ColumnScope.ConversationList(
     header: (@Composable () -> Unit)? = null,
     onClick: (Conversation) -> Unit = {},
     onDelete: (Conversation) -> Unit = {},
+    onEditTitle: (Conversation, String) -> Unit = { _, _ -> },
     onRegenerateTitle: (Conversation) -> Unit = {},
     onPin: (Conversation) -> Unit = {},
     onMoveToAssistant: (Conversation) -> Unit = {},
@@ -139,48 +146,55 @@ fun ColumnScope.ConversationList(
             }
         }
 
-        items(
-            count = conversations.itemCount,
-            key = conversations.itemKey { item ->
-                when (item) {
-                    // key 带上排序方式，避免切换排序后列表锚定到另一种排序下的同日期分组而发生跳动
-                    is ConversationListItem.DateHeader -> "date_${item.sortOrder}_${item.date}"
-                    is ConversationListItem.PinnedHeader -> "pinned_header"
-                    is ConversationListItem.Item -> item.conversation.id.toString()
-                }
-            }
-        ) { index ->
-            when (val item = conversations[index]) {
+        // 用索引遍历而不是 items( count )，因为 stickyHeader 只能在 LazyListScope 里按条目类型声明。
+        // peek 拿快照做类型判断，内容仍在 lambda 里取，保证分页的加载状态能被正确记录。
+        for (index in 0 until conversations.itemCount) {
+            when (val snapshotItem = conversations.peek(index)) {
                 is ConversationListItem.DateHeader -> {
-                    DateHeaderItem(
-                        label = item.label,
-                        modifier = Modifier.animateItem()
-                    )
+                    // key 带上来源与排序方式：切换助手/文件夹时 key 全变，日期标题按新条目淡入；
+                    // 切换排序时也按新条目处理，避免锚定到另一种排序下的同名分组
+                    stickyHeader(
+                        key = "date_${snapshotItem.sortOrder}_${snapshotItem.key}"
+                    ) {
+                        val header =
+                            conversations[index] as? ConversationListItem.DateHeader
+                                ?: snapshotItem
+                        DateHeaderItem(label = header.label)
+                    }
                 }
 
                 is ConversationListItem.PinnedHeader -> {
-                    PinnedHeader(
-                        modifier = Modifier.animateItem()
-                    )
+                    stickyHeader(key = "pinned_header") {
+                        conversations[index]
+                        PinnedHeader()
+                    }
                 }
 
                 is ConversationListItem.Item -> {
-                    ConversationItem(
-                        conversation = item.conversation,
-                        selected = item.conversation.id == current.id,
-                        loading = item.conversation.id in conversationJobs,
-                        onClick = onClick,
-                        onDelete = onDelete,
-                        onRegenerateTitle = onRegenerateTitle,
-                        onPin = onPin,
-                        onMoveToAssistant = onMoveToAssistant,
-                        onMoveToFolder = onMoveToFolder,
-                        modifier = Modifier.animateItem()
-                    )
+                    item(key = snapshotItem.conversation.id.toString()) {
+                        val item = conversations[index] as? ConversationListItem.Item
+                            ?: return@item
+                        ConversationItem(
+                            conversation = item.conversation,
+                            selected = item.conversation.id == current.id,
+                            loading = item.conversation.id in conversationJobs,
+                            onClick = onClick,
+                            onDelete = onDelete,
+                            onEditTitle = onEditTitle,
+                            onRegenerateTitle = onRegenerateTitle,
+                            onPin = onPin,
+                            onMoveToAssistant = onMoveToAssistant,
+                            onMoveToFolder = onMoveToFolder,
+                            modifier = Modifier.animateItem()
+                        )
+                    }
                 }
 
                 null -> {
                     // Placeholder for loading state
+                    item(key = "placeholder_$index") {
+                        conversations[index]
+                    }
                 }
             }
         }
@@ -212,27 +226,16 @@ private fun DateHeaderItem(
 private fun PinnedHeader(
     modifier: Modifier = Modifier
 ) {
-    Row(
+    Text(
         modifier = modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
             .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = HugeIcons.Pin,
-            contentDescription = null,
-            modifier = Modifier.size(16.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
-        Spacer(Modifier.size(8.dp))
-        Text(
-            text = stringResource(R.string.pinned_chats),
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-    }
+        text = stringResource(R.string.pinned_chats),
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.primary,
+    )
 }
 
 @Composable
@@ -242,6 +245,7 @@ private fun ConversationItem(
     loading: Boolean,
     modifier: Modifier = Modifier,
     onDelete: (Conversation) -> Unit = {},
+    onEditTitle: (Conversation, String) -> Unit = { _, _ -> },
     onRegenerateTitle: (Conversation) -> Unit = {},
     onPin: (Conversation) -> Unit = {},
     onMoveToAssistant: (Conversation) -> Unit = {},
@@ -257,6 +261,10 @@ private fun ConversationItem(
     }
     var showDropdownMenu by remember {
         mutableStateOf(false)
+    }
+    // 和聊天页点标题改名用的是同一套编辑状态与弹窗
+    val titleState = useEditState<String> { newTitle ->
+        onEditTitle(conversation, newTitle)
     }
     Box(
         modifier = modifier
@@ -286,15 +294,6 @@ private fun ConversationItem(
             )
             Spacer(Modifier.weight(1f))
 
-            // 置顶图标
-            AnimatedVisibility(conversation.isPinned) {
-                Icon(
-                    imageVector = HugeIcons.Pin,
-                    contentDescription = "Pinned",
-                    modifier = Modifier.size(12.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
             AnimatedVisibility(loading) {
                 Box(
                     modifier = Modifier
@@ -325,6 +324,19 @@ private fun ConversationItem(
                             if (conversation.isPinned) HugeIcons.PinOff else HugeIcons.Pin,
                             null
                         )
+                    }
+                )
+
+                DropdownMenuItem(
+                    text = {
+                        Text(stringResource(id = R.string.chat_page_manual_edit_title))
+                    },
+                    onClick = {
+                        titleState.open(conversation.title)
+                        showDropdownMenu = false
+                    },
+                    leadingIcon = {
+                        Icon(HugeIcons.Edit01, null)
                     }
                 )
 
@@ -381,5 +393,42 @@ private fun ConversationItem(
                 )
             }
         }
+    }
+
+    titleState.EditStateContent { title, onUpdate ->
+        AlertDialog(
+            onDismissRequest = {
+                titleState.dismiss()
+            },
+            title = {
+                Text(stringResource(R.string.chat_page_edit_title))
+            },
+            text = {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = onUpdate,
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        titleState.confirm()
+                    }
+                ) {
+                    Text(stringResource(R.string.chat_page_save))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        titleState.dismiss()
+                    }
+                ) {
+                    Text(stringResource(R.string.chat_page_cancel))
+                }
+            },
+        )
     }
 }

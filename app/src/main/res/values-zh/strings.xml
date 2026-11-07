@@ -267,6 +267,7 @@
   <string name="chat_page_dismiss_error">关闭错误</string>
   <string name="chat_page_edit_nickname">编辑昵称</string>
   <string name="chat_page_edit_title">编辑标题</string>
+  <string name="chat_page_manual_edit_title">手动更改标题</string>
   <string name="chat_page_edit_title_warning">请先聊天再编辑标题吧</string>
   <string name="chat_page_export_format">导出格式</string>
   <string name="chat_page_export_image">导出为图片</string>
@@ -281,7 +282,7 @@
   <string name="chat_page_menu_ai_translator">AI翻译</string>
   <string name="chat_page_menu_image_generation">图像生成</string>
   <string name="chat_page_message_count">%d 条消息</string>
-  <string name="chat_page_move_to_assistant">移至助手</string>
+  <string name="chat_page_move_to_assistant">移动到助手</string>
   <string name="chat_page_new_chat">新聊天</string>
   <string name="chat_page_new_message">新消息</string>
   <string name="chat_page_nickname_placeholder">请输入昵称</string>
@@ -292,6 +293,9 @@
   <string name="chat_page_search_chats">搜索聊天</string>
   <string name="chat_page_today">今天</string>
   <string name="chat_page_yesterday">昨天</string>
+  <string name="chat_page_within_30_days">30天内</string>
+  <string name="chat_page_within_7_days">7天内</string>
+  <string name="chat_page_month_group">%1$d年%2$d月</string>
   <string name="citations_count">%1$d 条引用</string>
   <string name="code_block_collapse">折叠</string>
   <string name="code_block_copy">复制代码</string>
@@ -448,7 +452,7 @@
   <string name="permission_required">必需</string>
   <string name="photo">照片</string>
   <string name="pin_chat">置顶聊天</string>
-  <string name="pinned_chats">置顶聊天</string>
+  <string name="pinned_chats">置顶</string>
   <string name="placeholder_battery_level">电池电量</string>
   <string name="placeholder_char">助手名称</string>
   <string name="placeholder_current_date">日期</string>
@@ -692,6 +696,8 @@
   <string name="setting_display_page_show_assistant_bubble_title">显示助手消息气泡</string>
   <string name="setting_display_page_show_datetime_in_message_desc">在每条消息下方显示日期和时间</string>
   <string name="setting_display_page_show_datetime_in_message_title">在消息中显示日期和时间</string>
+  <string name="setting_display_page_sidebar_date_grouping_desc">按今天、昨天、7天内、30天内和更早月份分组显示会话</string>
+  <string name="setting_display_page_sidebar_date_grouping_title">侧边栏日期分组</string>
   <string name="setting_display_page_show_line_numbers_desc">在代码块中显示行号</string>
   <string name="setting_display_page_show_line_numbers_title">显示行号</string>
   <string name="setting_display_page_show_message_jumper_desc">在滚动聊天列表时，在右侧显示快速跳转按钮</string>

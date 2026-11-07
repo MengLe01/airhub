@@ -267,6 +267,7 @@
   <string name="chat_page_dismiss_error">Dismiss error</string>
   <string name="chat_page_edit_nickname">Edit Nickname</string>
   <string name="chat_page_edit_title">Edit title</string>
+  <string name="chat_page_manual_edit_title">Edit title manually</string>
   <string name="chat_page_edit_title_warning">Please chat first before editing the title</string>
   <string name="chat_page_export_format">Export Format</string>
   <string name="chat_page_export_image">Export as Image</string>
@@ -292,6 +293,9 @@
   <string name="chat_page_search_chats">Search Chats</string>
   <string name="chat_page_today">Today</string>
   <string name="chat_page_yesterday">Yesterday</string>
+  <string name="chat_page_within_30_days">Within 30 days</string>
+  <string name="chat_page_within_7_days">Within 7 days</string>
+  <string name="chat_page_month_group">%1$d/%2$d</string>
   <string name="citations_count">%1$d Citations</string>
   <string name="code_block_collapse">Collapse</string>
   <string name="code_block_copy">Copy Code</string>
@@ -455,7 +459,7 @@
   <string name="permission_required">Required</string>
   <string name="photo">Photo</string>
   <string name="pin_chat">Pin the Chat</string>
-  <string name="pinned_chats">Pinned Chats</string>
+  <string name="pinned_chats">Pinned</string>
   <string name="placeholder_battery_level">Battery Level</string>
   <string name="placeholder_char">Assistant Name</string>
   <string name="placeholder_current_date">Date</string>
@@ -701,6 +705,8 @@
   <string name="setting_display_page_show_assistant_bubble_title">Show Assistant Message Bubble</string>
   <string name="setting_display_page_show_datetime_in_message_desc">Show date and time below each message</string>
   <string name="setting_display_page_show_datetime_in_message_title">Show Date and Time in Message</string>
+  <string name="setting_display_page_sidebar_date_grouping_desc">Group chats by today, yesterday, within 7 days, within 30 days, and older months</string>
+  <string name="setting_display_page_sidebar_date_grouping_title">Group Sidebar by Date</string>
   <string name="setting_display_page_show_line_numbers_desc">Display line numbers in code blocks</string>
   <string name="setting_display_page_show_line_numbers_title">Show Line Numbers</string>
   <string name="setting_display_page_show_message_jumper_desc">Display quick jump buttons on the right when scrolling the chat list</string>
