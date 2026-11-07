@@ -148,6 +148,7 @@ data class DisplaySetting(
     val showModelIcon: Boolean = true,
     val showModelName: Boolean = true,
     val showDateTimeInMessage: Boolean = false,
+    val showCharacterCountInMessage: Boolean = true,
     val enableSidebarDateGrouping: Boolean = true,
     val showTokenUsage: Boolean = true,
     val showThinkingContent: Boolean = true,
