@@ -26,10 +26,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -147,6 +149,8 @@ fun ChatInput(
     onStartVoiceMode: (() -> Unit)? = null,
     voiceState: VoiceSessionState = VoiceSessionState(),
     onStopVoiceMode: () -> Unit = {},
+    // 输入框自己的焦点：拖列表收键盘时要先问一句，正在选字时输入框已经失焦，不能再清
+    onInputFocusChange: (Boolean) -> Unit = {},
 ) {
     val toaster = LocalToaster.current
     val containerColor = MaterialTheme.colorScheme.surfaceContainerLow
@@ -226,8 +230,8 @@ fun ChatInput(
     ) {
         Column(
             modifier = modifier
-                .imePadding()
-                .navigationBarsPadding()
+                // 键盘高度里已经包含导航栏，叠加会多垫一个导航栏高度
+                .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
                 .padding(horizontal = 8.dp)
                 .padding(bottom = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -277,6 +281,7 @@ fun ChatInput(
                         assistant = assistant,
                         completionProviders = completionProviders,
                         onSendMessage = { sendMessage() },
+                        onInputFocusChange = onInputFocusChange,
                     )
 
                     Row(
@@ -482,6 +487,7 @@ private fun TextInputRow(
     assistant: Assistant,
     completionProviders: List<ChatCompletionProvider>,
     onSendMessage: () -> Unit,
+    onInputFocusChange: (Boolean) -> Unit,
 ) {
     val settings = LocalSettings.current
     val filesManager: FilesManager = koinInject()
@@ -619,6 +625,7 @@ private fun TextInputRow(
                 .contentReceiver(receiveContentListener)
                 .onFocusChanged {
                     isFocused = it.isFocused
+                    onInputFocusChange(it.isFocused)
                 },
             shape = MaterialTheme.shapes.largeIncreased,
             placeholder = {
