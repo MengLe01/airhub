@@ -42,7 +42,15 @@ class AssistantVM(
             cleanupAssistantFiles(assistant)
 
             settingsStore.update { settings ->
-                settings.copy(assistants = settings.assistants.filter { it.id != assistant.id })
+                val remainingAssistants = settings.assistants.filter { it.id != assistant.id }
+                val nextAssistantId = settings.assistantId
+                    .takeIf { currentId -> remainingAssistants.any { it.id == currentId } }
+                    ?: remainingAssistants.firstOrNull()?.id
+                    ?: settings.assistantId
+                settings.copy(
+                    assistantId = nextAssistantId,
+                    assistants = remainingAssistants,
+                )
             }
             memoryRepository.deleteFilesOfAssistant(assistant.id.toString())
             chatService.deleteConversationsOfAssistant(assistant.id)
