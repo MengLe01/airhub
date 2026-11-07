@@ -44,8 +44,8 @@ private enum class BackupTab(
     override val icon: ImageVector,
     @param:StringRes private val labelRes: Int,
 ) : PagerTab {
-    LOCAL(HugeIcons.SmartPhone01, R.string.backup_page_import_export),
     WEBDAV(HugeIcons.CloudServer, R.string.backup_page_webdav_backup),
+    LOCAL(HugeIcons.SmartPhone01, R.string.backup_page_import_export),
     S3(HugeIcons.Bucket, R.string.backup_page_s3_backup),
     REMINDER(HugeIcons.Notification01, R.string.backup_page_reminder);
 
