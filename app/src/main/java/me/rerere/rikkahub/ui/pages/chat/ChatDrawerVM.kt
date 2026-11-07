@@ -74,6 +74,12 @@ class ChatDrawerVM(
     private val _selectedFolderId = MutableStateFlow<Uuid?>(null)
     val selectedFolderId: StateFlow<Uuid?> = _selectedFolderId.asStateFlow()
 
+    val sourceKey: StateFlow<String> = combine(assistantIdFlow, _selectedFolderId) { assistantId, folderId ->
+        "${assistantId}_${folderId ?: "unfiled"}"
+    }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
     // 当前助手的文件夹列表（Room Flow，增删改自动刷新）
     val folders: StateFlow<List<Folder>> = assistantIdFlow
         .flatMapLatest { folderRepo.getFoldersOfAssistant(it) }
@@ -153,6 +159,13 @@ class ChatDrawerVM(
     fun saveScrollPosition(index: Int, offset: Int) {
         savedStateHandle["scrollIndex"] = index
         savedStateHandle["scrollOffset"] = offset
+    }
+
+    fun shouldScrollToTopForSource(sourceKey: String): Boolean {
+        val previousSourceKey = savedStateHandle.get<String>("sidebarSourceKey")
+        if (previousSourceKey == sourceKey) return false
+        savedStateHandle["sidebarSourceKey"] = sourceKey
+        return previousSourceKey != null
     }
 
     fun selectFolder(folderId: Uuid?) {

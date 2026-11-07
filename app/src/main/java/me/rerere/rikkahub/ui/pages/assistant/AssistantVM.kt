@@ -48,7 +48,15 @@ class AssistantVM(
                 val target = settings.assistants.find { it.id == assistant.id }
                 if (target == null || settings.assistants.size <= 1) return@update settings
                 removed = target
-                settings.copy(assistants = settings.assistants.filter { it.id != target.id })
+                val remainingAssistants = settings.assistants.filter { it.id != target.id }
+                val nextAssistantId = settings.assistantId
+                    .takeIf { currentId -> remainingAssistants.any { it.id == currentId } }
+                    ?: remainingAssistants.firstOrNull()?.id
+                    ?: settings.assistantId
+                settings.copy(
+                    assistantId = nextAssistantId,
+                    assistants = remainingAssistants,
+                )
             }
             // 只有真的删掉了才清理关联数据
             val target = removed ?: return@launch
