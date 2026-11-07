@@ -66,6 +66,8 @@ import me.rerere.rikkahub.service.ChatError
 import me.rerere.rikkahub.ui.components.message.ChatMessage
 import me.rerere.rikkahub.ui.components.ui.ErrorCardsDisplay
 import me.rerere.rikkahub.ui.hooks.ImeLazyListAutoScroller
+import me.rerere.rikkahub.ui.hooks.observeListGestures
+import me.rerere.rikkahub.ui.hooks.rememberListGestureState
 import me.rerere.rikkahub.ui.theme.ChatFontProvider
 import me.rerere.rikkahub.utils.plus
 import me.rerere.ui.components.ListSelectableItem
@@ -103,6 +105,7 @@ fun ChatList(
     onToolAnswer: ((toolCallId: String, answer: String) -> Unit)? = null,
     onToggleFavorite: ((MessageNode) -> Unit)? = null,
     onConversationSystemPromptChange: ((String?) -> Unit)? = null,
+    onDismissInput: () -> Unit = {},
 ) {
     val previewProgress = rememberPreviewSwipeProgress(previewMode)
     val scope = rememberCoroutineScope()
@@ -162,6 +165,7 @@ fun ChatList(
                 onToggleFavorite = onToggleFavorite,
                 onConversationSystemPromptChange = onConversationSystemPromptChange,
                 selectionState = selectionState,
+                onDismissInput = onDismissInput,
             )
         }
 
@@ -233,6 +237,7 @@ private fun ChatListNormal(
     onToggleFavorite: ((MessageNode) -> Unit)? = null,
     onConversationSystemPromptChange: ((String?) -> Unit)? = null,
     selectionState: ChatSelectionState,
+    onDismissInput: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val loadingState by rememberUpdatedState(loading)
@@ -260,21 +265,46 @@ private fun ChatListNormal(
         }
     }
 
-    fun List<LazyListItemInfo>.isAtBottom(): Boolean {
+    // 输入栏占掉的底部高度，组合时算一次，别在每帧的判定里反复换算
+    val inputBarHeightPx = with(density) { innerPadding.calculateBottomPadding().toPx() }
+    // 判定「在底部」允许的余量
+    val nearBottomSlackPx = with(density) { 48.dp.toPx() }
+
+    fun List<LazyListItemInfo>.isAtBottom(slackPx: Float = -8f): Boolean {
         val lastItem = lastOrNull() ?: return false
-        val inputBarHeight = with(density) { innerPadding.calculateBottomPadding().toPx() }
-        val lastPos = lastItem.offset + lastItem.size
-        val inputPos = (state.layoutInfo.viewportEndOffset - inputBarHeight.roundToInt())
-        // println("lastPos = $lastPos, inputPos = $inputPos  | ${lastPos <= inputPos - 8}")
-        return lastPos <= inputPos - 8
+        val inputTop = state.layoutInfo.viewportEndOffset - inputBarHeightPx
+        // 在底部时最后一条的下沿贴着输入栏顶部；往上翻会让它跑到下面去（值变大）
+        return lastItem.offset + lastItem.size <= inputTop + slackPx
+    }
+
+    // 键盘抬起前问一次：人在底部（留 48dp 余量）才跟着推内容
+    fun isNearBottom(): Boolean {
+        if (!state.canScrollForward) return true
+        val visibleItems = state.layoutInfo.visibleItemsInfo
+        // 最后一条已经翻出视野，肯定不算在底部
+        if (visibleItems.lastOrNull()?.index != state.layoutInfo.totalItemsCount - 1) return false
+        return visibleItems.isAtBottom(slackPx = nearBottomSlackPx)
     }
 
     // 聊天选择
     val selectedItems = selectionState.selectedItems
     var showExportSheet by remember { mutableStateOf(false) }
 
-    // 自动跟随键盘滚动
-    ImeLazyListAutoScroller(lazyListState = state)
+    val currentDismissInput by rememberUpdatedState(onDismissInput)
+    val gestureState = rememberListGestureState(
+        onBlankTap = { currentDismissInput() },
+        // 拖动列表说明用户在翻内容，顺手把键盘收起来（超过 slop 那一下直接通知，不用另挂观察者）。
+        // 要不要真的清焦点由 ChatPage 判断：输入框没有焦点说明正在选字，
+        // 这时清焦点会把选区一起清掉，而选中文字本来就会收键盘。
+        onDragStart = { currentDismissInput() },
+    )
+
+    // 自动跟随键盘：键盘抬起前在底部才跟随，手指按在列表上时不抢滚动
+    ImeLazyListAutoScroller(
+        lazyListState = state,
+        isNearBottom = { isNearBottom() },
+        enabled = { !gestureState.isPressing },
+    )
 
     val assistant = remember(
         settings.assistants,
@@ -295,7 +325,8 @@ private fun ChatListNormal(
 
     Box(
         modifier = Modifier
-            .fillMaxSize(),
+            .fillMaxSize()
+            .observeListGestures(gestureState),
     ) {
         // 自动滚动到底部
         if (settings.displaySetting.enableAutoScroll) {

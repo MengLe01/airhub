@@ -136,6 +136,12 @@ fun ChatPage(id: Uuid, text: String?, files: List<Uri>, nodeId: Uuid? = null) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val softwareKeyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
+    // 只清焦点就够了：输入框失焦自己会收键盘。
+    // 不在这里主动 hide()：那个请求如果晚一步到，会把紧接着要弹的键盘掐掉
+    //（表现就是点了输入框没反应，再点几次又好了）。
+    val dismissInput: () -> Unit = remember(focusManager) {
+        { focusManager.clearFocus(force = true) }
+    }
 
     // Handle back press when drawer is open
     BackHandler(enabled = drawerState.isOpen) {
@@ -147,7 +153,8 @@ fun ChatPage(id: Uuid, text: String?, files: List<Uri>, nodeId: Uuid? = null) {
     // Clear input focus so popup transitions cannot reopen the keyboard.
     LaunchedEffect(drawerState.isOpen) {
         if (drawerState.isOpen) {
-            focusManager.clearFocus(force = true)
+            dismissInput()
+            // 抽屉是遮罩浮层，个别 ROM 清焦点后键盘不自己走，这里补一下
             softwareKeyboardController?.hide()
         }
     }
@@ -257,6 +264,7 @@ fun ChatPage(id: Uuid, text: String?, files: List<Uri>, nodeId: Uuid? = null) {
                     errors = errors,
                     onDismissError = { vm.dismissError(it) },
                     onClearAllErrors = { vm.clearAllErrors() },
+                    onDismissInput = dismissInput,
                 )
             }
         }
@@ -290,6 +298,7 @@ fun ChatPage(id: Uuid, text: String?, files: List<Uri>, nodeId: Uuid? = null) {
                     errors = errors,
                     onDismissError = { vm.dismissError(it) },
                     onClearAllErrors = { vm.clearAllErrors() },
+                    onDismissInput = dismissInput,
                 )
             }
             BackHandler(drawerState.isOpen) {
@@ -317,12 +326,16 @@ private fun ChatPageContent(
     errors: List<ChatError>,
     onDismissError: (Uuid) -> Unit,
     onClearAllErrors: () -> Unit,
+    onDismissInput: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val toaster = LocalToaster.current
     val workspaceRepository: WorkspaceRepository = koinInject()
 
     var previewMode by rememberSaveable { mutableStateOf(false) }
+    // 输入框有没有焦点：拖列表、点空白要收键盘，但正在选字时输入框已经失焦，
+    // 这时候再清焦点会把选区一起清掉，所以只在输入框有焦点时才收
+    var isInputFocused by remember { mutableStateOf(false) }
     val selectionState = rememberChatSelectionState()
     var showDeleteConfirm by remember { mutableStateOf(false) }
     val hazeState = rememberHazeState()
@@ -411,6 +424,7 @@ private fun ChatPageContent(
                     )
                 }
                 ChatInput(
+                    onInputFocusChange = { isInputFocused = it },
                     onStartVoiceMode = onStartVoiceMode,
                     voiceState = voiceState,
                     onStopVoiceMode = vm.voiceSession::stop,
@@ -538,6 +552,11 @@ private fun ChatPageContent(
                 },
                 onConversationSystemPromptChange = { newPrompt ->
                     vm.updateConversationSystemPrompt(newPrompt)
+                },
+                // 编辑消息时不收键盘，免得正在改的内容被打断；
+                // 输入框没焦点说明正在选字，也不收，否则选区会被一起清掉
+                onDismissInput = {
+                    if (!inputState.isEditing() && isInputFocused) onDismissInput()
                 },
             )
         }
