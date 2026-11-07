@@ -21,8 +21,11 @@ class ConversationConfigTest {
     private val workspace = Uuid.random()
     private val injection = Uuid.random()
     private val lorebook = Uuid.random()
+    // 助手开着「对话独立设置」时持有的那个 id
+    private val pinSessionId = Uuid.random()
 
     private val assistant = Assistant(
+        pinSessionId = pinSessionId,
         chatModelId = modelA.id,
         reasoningLevel = ReasoningLevel.HIGH,
         enableWebSearch = true,
@@ -62,6 +65,7 @@ class ConversationConfigTest {
 
         assertEquals(
             ConversationConfig(
+                pinSessionId = pinSessionId,
                 chatModelId = modelA.id,
                 reasoningLevel = ReasoningLevel.HIGH,
                 enableWebSearch = true,
@@ -219,5 +223,60 @@ class ConversationConfigTest {
         // 会话自己绑定过的保留，没绑定过的继承助手
         assertEquals(setOf(conversationInjection), bound.modeInjectionIds)
         assertEquals(setOf(lorebook), bound.lorebookIds)
+    }
+
+    @Test
+    fun `switch off makes the conversation follow the assistant again`() {
+        val bound = conversation().bindConfig(settings())
+        val unpinned = settings(assistant.copy(pinSessionId = null, chatModelId = modelB.id))
+
+        // 快照还在，但助手关掉了开关，读取时不再套用它
+        assertEquals(modelB.id, unpinned.getChatModelOf(bound)?.id)
+        assertEquals(ReasoningLevel.HIGH, unpinned.getAssistantOf(bound).reasoningLevel)
+        assertFalse(unpinned.isConfigPinned(bound))
+    }
+
+    @Test
+    fun `switch off does not snapshot new conversations`() {
+        val unpinned = assistant.copy(pinSessionId = null)
+        val conversation = conversation(unpinned)
+
+        assertSame(conversation, conversation.bindConfig(settings(unpinned)))
+    }
+
+    @Test
+    fun `snapshot from a previous independent period is ignored`() {
+        val bound = conversation().bindConfig(settings())
+        val nextPeriod = Uuid.random()
+        val reopened = settings(assistant.copy(pinSessionId = nextPeriod, reasoningLevel = ReasoningLevel.LOW))
+
+        // 上一期拍的快照不算数，读到的还是助手当前的设置
+        assertEquals(ReasoningLevel.LOW, reopened.getAssistantOf(bound).reasoningLevel)
+        assertFalse(reopened.isConfigPinned(bound))
+
+        val rebound = bound.bindConfig(reopened)
+
+        assertEquals(nextPeriod, rebound.config?.pinSessionId)
+        assertEquals(ReasoningLevel.LOW, rebound.config?.reasoningLevel)
+        assertTrue(reopened.isConfigPinned(rebound))
+    }
+
+    @Test
+    fun `toggling the switch back and forth does not resurrect old settings`() {
+        val bound = conversation().bindConfig(settings())
+        val changed = bound.withAssistantUpdate(
+            settings().getAssistantOf(bound).copy(reasoningLevel = ReasoningLevel.LOW),
+            settings(),
+        )
+        // 开关还开着时，会话确实用着自己改过的思考级别
+        assertEquals(ReasoningLevel.LOW, settings().getAssistantOf(changed).reasoningLevel)
+
+        // 关掉再打开：换了新的 id，上一期改过的思考级别不会回来
+        val off = settings(assistant.copy(pinSessionId = null))
+        val reopened = settings(assistant.copy(pinSessionId = Uuid.random()))
+
+        assertEquals(ReasoningLevel.HIGH, off.getAssistantOf(changed).reasoningLevel)
+        assertEquals(ReasoningLevel.HIGH, reopened.getAssistantOf(changed).reasoningLevel)
+        assertEquals(ReasoningLevel.HIGH, changed.bindConfig(reopened).config?.reasoningLevel)
     }
 }
