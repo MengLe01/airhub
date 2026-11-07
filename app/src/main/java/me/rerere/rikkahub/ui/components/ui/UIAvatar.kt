@@ -92,6 +92,8 @@ fun UIAvatar(
     modifier: Modifier = Modifier,
     loading: Boolean = false,
     shape: Shape = rememberAvatarShape(loading),
+    // 关掉右下角的编辑角标，侧边栏的用户头像不需要它
+    showEditBadge: Boolean = true,
     onUpdate: ((Avatar) -> Unit)? = null,
     onClick: (() -> Unit)? = null
 ) {
@@ -181,7 +183,7 @@ fun UIAvatar(
         }
 
         // Show edit icon when editable
-        if (onUpdate != null) {
+        if (onUpdate != null && showEditBadge) {
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)

@@ -36,7 +36,17 @@ import me.rerere.rikkahub.service.ChatService
 import me.rerere.rikkahub.utils.toLocalString
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.temporal.ChronoUnit
 import kotlin.uuid.Uuid
+
+private data class ConversationQuery(
+    val assistantId: Uuid,
+    val folderId: Uuid?,
+    val sortOrder: ConversationSortOrder,
+    val groupingEnabled: Boolean,
+)
+
+private data class DateGroup(val key: String, val label: String)
 
 class ChatDrawerVM(
     private val context: Application,
@@ -54,6 +64,10 @@ class ChatDrawerVM(
 
     private val sortOrderFlow = settingsStore.settingsFlow
         .map { it.displaySetting.conversationSortOrder }
+        .distinctUntilChanged()
+
+    private val groupingEnabledFlow = settingsStore.settingsFlow
+        .map { it.displaySetting.enableSidebarDateGrouping }
         .distinctUntilChanged()
 
     // 当前选中的文件夹筛选，null 表示「未归类」视图
@@ -75,10 +89,15 @@ class ChatDrawerVM(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val conversations: Flow<PagingData<ConversationListItem>> =
-        combine(assistantIdFlow, _selectedFolderId, sortOrderFlow) { assistantId, folderId, sortOrder ->
-            Triple(assistantId, folderId, sortOrder)
+        combine(assistantIdFlow, _selectedFolderId, sortOrderFlow, groupingEnabledFlow) {
+            assistantId, folderId, sortOrder, groupingEnabled ->
+            ConversationQuery(assistantId, folderId, sortOrder, groupingEnabled)
         }
-            .flatMapLatest { (assistantId, folderId, sortOrder) ->
+            .flatMapLatest { query ->
+                val assistantId = query.assistantId
+                val folderId = query.folderId
+                val sortOrder = query.sortOrder
+                val groupingEnabled = query.groupingEnabled
                 val paging = if (folderId == null) {
                     conversationRepo.getUnfiledConversationsOfAssistantPaging(assistantId, sortOrder)
                 } else {
@@ -97,15 +116,17 @@ class ChatDrawerVM(
                                 else -> {
                                     // 日期分组跟随排序依据：按创建时间排序时以创建日期分组
                                     val afterDate = after.conversation.sortDate(sortOrder)
-                                    val sameGroup = before != null &&
-                                        !before.conversation.isPinned &&
-                                        before.conversation.sortDate(sortOrder) == afterDate
-                                    if (sameGroup) {
+                                    val afterGroup = dateGroup(afterDate, groupingEnabled)
+                                    val beforeGroup = before
+                                        ?.takeUnless { it.conversation.isPinned }
+                                        ?.let { dateGroup(it.conversation.sortDate(sortOrder), groupingEnabled) }
+                                    if (beforeGroup?.key == afterGroup.key) {
                                         null
                                     } else {
                                         ConversationListItem.DateHeader(
                                             date = afterDate,
-                                            label = getDateLabel(afterDate),
+                                            key = afterGroup.key,
+                                            label = afterGroup.label,
                                             sortOrder = sortOrder,
                                         )
                                     }
@@ -185,6 +206,24 @@ class ChatDrawerVM(
             ConversationSortOrder.CREATE_TIME -> createAt
         }
         return instant.atZone(ZoneId.systemDefault()).toLocalDate()
+    }
+
+    private fun dateGroup(date: LocalDate, groupingEnabled: Boolean): DateGroup {
+        if (!groupingEnabled) {
+            return DateGroup(date.toString(), getDateLabel(date))
+        }
+        val today = LocalDate.now()
+        val daysAgo = ChronoUnit.DAYS.between(date, today)
+        return when {
+            daysAgo <= 0 -> DateGroup("today", context.getString(R.string.chat_page_today))
+            daysAgo == 1L -> DateGroup("yesterday", context.getString(R.string.chat_page_yesterday))
+            daysAgo < 7 -> DateGroup("within_7_days", context.getString(R.string.chat_page_within_7_days))
+            daysAgo < 30 -> DateGroup("within_30_days", context.getString(R.string.chat_page_within_30_days))
+            else -> DateGroup(
+                "month_${date.year}_${date.monthValue}",
+                context.getString(R.string.chat_page_month_group, date.year, date.monthValue),
+            )
+        }
     }
 
     private fun getDateLabel(date: LocalDate): String {
