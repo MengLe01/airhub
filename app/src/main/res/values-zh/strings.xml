@@ -250,6 +250,7 @@
   <string name="chat_message_tool_search_results_count">共 %1$d 条结果</string>
   <string name="chat_message_tool_search_web">搜索网页: %1$s</string>
   <string name="chat_message_tool_submit">提交</string>
+  <string name="chat_message_character_count">%1$d 字</string>
   <string name="chat_page_cancel">取消</string>
   <string name="chat_page_check_fast_model_settings">检查快速模型设置</string>
   <string name="chat_page_clear_all_errors">清除全部</string>
@@ -307,7 +308,7 @@
   <string name="copied">已复制</string>
   <string name="copy">复制</string>
   <string name="copy_all">复制全部</string>
-  <string name="create_fork">创建分支</string>
+  <string name="create_fork">创建副本</string>
   <string name="db_migrating">正在迁移数据库…</string>
   <string name="deep_thinking">深度思考</string>
   <string name="deep_thinking_seconds">思考了 %1$.1f 秒</string>
@@ -535,7 +536,7 @@
   <string name="reasoning_xhigh">超高</string>
   <string name="regenerate">重新生成</string>
   <string name="regenerate_confirm_message">确定要重新生成此消息吗？此消息下方所有消息会被清理</string>
-  <string name="render_with_webview">网页视图渲染</string>
+  <string name="render_with_webview">网页渲染</string>
   <string name="rikkahub_provider_description">官方免费 AI 服务，使用用户赞助资金为新用户提供部分免费模型作为备用，无需 API 密钥。有严格速率限制，如已购买自有服务商，请尽量使用自有服务商。</string>
   <string name="safe_mode_assistants">助手</string>
   <string name="safe_mode_copy">复制</string>
@@ -590,7 +591,9 @@
   <string name="search_picker_model_description">模型提供商云端自带搜索</string>
   <string name="search_picker_select_provider">选择搜索服务商</string>
   <string name="search_picker_turn_off">关闭搜索</string>
-  <string name="select_and_copy">选择复制</string>
+  <string name="select_and_copy">选择文本</string>
+  <string name="read_aloud">朗读</string>
+  <string name="stop_reading">停止朗读</string>
   <string name="send">发送</string>
   <string name="setting_asr_configure_api_key">API密钥</string>
   <string name="setting_asr_configure_dashscope_api_key_desc">DashScope API密钥</string>
@@ -696,6 +699,8 @@
   <string name="setting_display_page_show_assistant_bubble_title">显示助手消息气泡</string>
   <string name="setting_display_page_show_datetime_in_message_desc">在每条消息下方显示日期和时间</string>
   <string name="setting_display_page_show_datetime_in_message_title">在消息中显示日期和时间</string>
+  <string name="setting_display_page_show_character_count_in_message_desc">在每条消息下方显示正文的字数</string>
+  <string name="setting_display_page_show_character_count_in_message_title">在消息中显示字数</string>
   <string name="setting_display_page_sidebar_date_grouping_desc">按今天、昨天、7天内、30天内和更早月份分组显示会话</string>
   <string name="setting_display_page_sidebar_date_grouping_title">侧边栏日期分组</string>
   <string name="setting_display_page_show_line_numbers_desc">在代码块中显示行号</string>

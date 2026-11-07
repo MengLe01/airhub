@@ -151,3 +151,11 @@ fun String.removeBracketedContent(): String? {
     val result = pattern.replace(this, "").trim()
     return result.ifBlank { null }
 }
+
+/**
+ * Counts Unicode code points in the string.
+ *
+ * Every character, including CJK characters, Latin letters, digits, emoji,
+ * whitespace, Markdown markers, and code characters, counts as one.
+ */
+fun String.characterCount(): Int = codePointCount(0, length)

@@ -250,6 +250,7 @@
   <string name="chat_message_tool_search_results_count">%1$d results</string>
   <string name="chat_message_tool_search_web">Search web: %1$s</string>
   <string name="chat_message_tool_submit">Submit</string>
+  <string name="chat_message_character_count">%1$d chars</string>
   <string name="chat_page_cancel">Cancel</string>
   <string name="chat_page_check_fast_model_settings">Check fast model settings</string>
   <string name="chat_page_clear_all_errors">Clear all</string>
@@ -307,7 +308,7 @@
   <string name="copied">Copied</string>
   <string name="copy">Copy</string>
   <string name="copy_all">Copy All</string>
-  <string name="create_fork">Create a fork</string>
+  <string name="create_fork">Create Copy</string>
   <string name="db_migrating">Migrating database...</string>
   <string name="deep_thinking">Deep Thinking</string>
   <string name="deep_thinking_seconds">Thought for %1$.1f seconds</string>
@@ -543,7 +544,7 @@
   <string name="reasoning_xhigh">XHigh</string>
   <string name="regenerate">Regenerate</string>
   <string name="regenerate_confirm_message">Are you sure you want to regenerate this message? All messages below this message will be deleted.</string>
-  <string name="render_with_webview">Render with WebView</string>
+  <string name="render_with_webview">Web Render</string>
   <string name="rikkahub_provider_description">Official free AI service, using user sponsorship funds to provide some free models for new users as fallback, no API key required. Has strict rate limits, if you have purchased your own provider, please use your own provider as much as possible.</string>
   <string name="safe_mode_assistants">Assistants</string>
   <string name="safe_mode_copy">Copy</string>
@@ -599,7 +600,9 @@
   <string name="search_picker_model_description">Cloud search built into the model provider</string>
   <string name="search_picker_select_provider">Select search provider</string>
   <string name="search_picker_turn_off">Turn off search</string>
-  <string name="select_and_copy">Select and Copy</string>
+  <string name="select_and_copy">Select Text</string>
+  <string name="read_aloud">Read Aloud</string>
+  <string name="stop_reading">Stop Reading</string>
   <string name="send">Send</string>
   <string name="setting_asr_configure_api_key">API Key</string>
   <string name="setting_asr_configure_dashscope_api_key_desc">DashScope API key</string>
@@ -705,6 +708,8 @@
   <string name="setting_display_page_show_assistant_bubble_title">Show Assistant Message Bubble</string>
   <string name="setting_display_page_show_datetime_in_message_desc">Show date and time below each message</string>
   <string name="setting_display_page_show_datetime_in_message_title">Show Date and Time in Message</string>
+  <string name="setting_display_page_show_character_count_in_message_desc">Show the character count below each message. CJK characters, letters, digits, emoji, whitespace, and other characters count as one; reasoning is excluded.</string>
+  <string name="setting_display_page_show_character_count_in_message_title">Show Character Count in Message</string>
   <string name="setting_display_page_sidebar_date_grouping_desc">Group chats by today, yesterday, within 7 days, within 30 days, and older months</string>
   <string name="setting_display_page_sidebar_date_grouping_title">Group Sidebar by Date</string>
   <string name="setting_display_page_show_line_numbers_desc">Display line numbers in code blocks</string>
