@@ -1,19 +1,30 @@
 package me.rerere.rikkahub.ui.pages.setting.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -25,7 +36,10 @@ import me.rerere.hugeicons.stroke.ViewOff
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.ui.components.ui.CardGroup
 import me.rerere.rikkahub.ui.components.ui.CardGroupScope
+import me.rerere.rikkahub.ui.components.ui.switchItem
 import me.rerere.tts.provider.TTSProviderSetting
+import me.rerere.tts.provider.providers.BreezeVoiceCatalog
+import me.rerere.tts.provider.providers.BreezeVoiceSummary
 import me.rerere.ui.components.OutlinedNumberInput
 import me.rerere.ui.components.SelectTextField
 
@@ -58,6 +72,7 @@ fun TTSProviderConfigure(
                         is TTSProviderSetting.ElevenLabs -> "ElevenLabs"
                         is TTSProviderSetting.FishAudio -> "Fish Audio"
                         is TTSProviderSetting.Volcengine -> "火山引擎"
+                        is TTSProviderSetting.Breeze -> "Breeze Blue"
                     },
                     options = TTSProviderSetting.Types,
                     readOnly = true,
@@ -75,6 +90,7 @@ fun TTSProviderConfigure(
                             TTSProviderSetting.ElevenLabs::class -> "ElevenLabs"
                             TTSProviderSetting.FishAudio::class -> "Fish Audio"
                             TTSProviderSetting.Volcengine::class -> "火山引擎"
+                            TTSProviderSetting.Breeze::class -> "Breeze Blue"
                             TTSProviderSetting.Step::class -> "Step"
                             else -> providerClass.simpleName ?: "Unknown"
                         }
@@ -138,6 +154,11 @@ fun TTSProviderConfigure(
 
                             TTSProviderSetting.Volcengine::class -> TTSProviderSetting.Volcengine(id = setting.id)
 
+                            TTSProviderSetting.Breeze::class -> TTSProviderSetting.Breeze(
+                                id = setting.id,
+                                name = "Breeze TTS"
+                            )
+
                             else -> setting
                         }
                         onValueChange(newSetting)
@@ -175,6 +196,7 @@ fun TTSProviderConfigure(
                 is TTSProviderSetting.FishAudio -> fishAudioTTSItems(setting, onValueChange)
                 is TTSProviderSetting.Step -> stepTTSItems(setting, onValueChange)
                 is TTSProviderSetting.Volcengine -> volcengineTTSItems(setting, onValueChange)
+                is TTSProviderSetting.Breeze -> breezeTTSItems(setting, onValueChange)
             }
         }
     }
@@ -1323,3 +1345,246 @@ private fun CardGroupScope.volcengineTTSItems(
         )
     }
 }
+
+private fun CardGroupScope.breezeTTSItems(
+    setting: TTSProviderSetting.Breeze,
+    onValueChange: (TTSProviderSetting) -> Unit
+) {
+    formItem(
+        headlineContent = { Text("API Key") },
+        supportingContent = { Text("Breeze 控制台创建的密钥，形如 brz_xxxxxxxx。") }
+    ) {
+        var keyVisible by remember(setting.id) { mutableStateOf(false) }
+        OutlinedTextField(
+            value = setting.apiKey,
+            onValueChange = { onValueChange(setting.copy(apiKey = it)) },
+            visualTransformation = if (keyVisible) VisualTransformation.None else PasswordVisualTransformation(),
+            trailingIcon = {
+                IconButton(onClick = { keyVisible = !keyVisible }) {
+                    Icon(
+                        imageVector = if (keyVisible) HugeIcons.ViewOff else HugeIcons.View,
+                        contentDescription = if (keyVisible) "隐藏 API Key" else "显示 API Key",
+                    )
+                }
+            },
+            placeholder = { Text("brz_xxxxxxxx") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+
+    formItem(
+        headlineContent = { Text(stringResource(R.string.setting_tts_page_base_url)) },
+        supportingContent = { Text("一般不用改，末尾不要带 /v1。") }
+    ) {
+        OutlinedTextField(
+            value = setting.baseUrl,
+            onValueChange = { onValueChange(setting.copy(baseUrl = it)) },
+            placeholder = { Text("https://api.breeze.blue") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+
+    formItem(
+        headlineContent = { Text(stringResource(R.string.setting_tts_page_model)) },
+        supportingContent = { Text("纯中文/英文用 Breeze TTS 2，其它语种需要 Multilingual。") }
+    ) {
+        SelectTextField(
+            value = setting.model,
+            options = TTSProviderSetting.BREEZE_MODELS,
+            onValueChange = { onValueChange(setting.copy(model = it)) },
+            onOptionSelected = { model -> onValueChange(setting.copy(model = model.first)) },
+            optionToString = { model -> model.second },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+
+    formItem(
+        headlineContent = { Text("音色") },
+        supportingContent = {
+            Text(
+                if (setting.voiceId.isBlank()) "还没选音色。可以点右侧按钮从账号里拉取。"
+                else setting.voiceId
+            )
+        },
+        trailingContent = {
+            var showPicker by remember(setting.id) { mutableStateOf(false) }
+            TextButton(
+                onClick = { showPicker = true },
+                enabled = setting.apiKey.isNotBlank(),
+            ) {
+                Text("拉取列表")
+            }
+            if (showPicker) {
+                BreezeVoicePickerDialog(
+                    apiKey = setting.apiKey,
+                    baseUrl = setting.baseUrl,
+                    onDismiss = { showPicker = false },
+                    onSelect = { voiceId ->
+                        showPicker = false
+                        onValueChange(setting.copy(voiceId = voiceId))
+                    },
+                )
+            }
+        }
+    ) {
+        OutlinedTextField(
+            value = setting.voiceId,
+            onValueChange = { onValueChange(setting.copy(voiceId = it)) },
+            placeholder = { Text("voc_xxxxxxxxxxxx") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+
+    formItem(
+        headlineContent = { Text("输出格式") },
+        supportingContent = {
+            Text("这是服务端的封闭枚举，填别的值会被直接拒绝。flac 没有列出，因为客户端不认识该格式。")
+        }
+    ) {
+        SelectTextField(
+            value = setting.outputFormat,
+            options = TTSProviderSetting.BREEZE_OUTPUT_FORMATS,
+            onValueChange = { onValueChange(setting.copy(outputFormat = it)) },
+            onOptionSelected = { onValueChange(setting.copy(outputFormat = it)) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+
+    formItem(
+        headlineContent = { Text("语言") },
+        supportingContent = { Text("ISO 639-1 两位语言码，留空则不下发、由服务端自行判断。") }
+    ) {
+        SelectTextField(
+            value = setting.languageCode,
+            options = listOf("", "zh", "en", "ja", "ko"),
+            onValueChange = { onValueChange(setting.copy(languageCode = it)) },
+            onOptionSelected = { onValueChange(setting.copy(languageCode = it)) },
+            optionToString = { it.ifBlank { "（不下发）" } },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+
+    formItem(
+        headlineContent = { Text("语气指导") },
+        supportingContent = {
+            Text("用自然语言描述要怎么说，比如「用低沉、克制的语气，像在忍住失望」。留空则不下发。")
+        }
+    ) {
+        OutlinedTextField(
+            value = setting.instructions,
+            onValueChange = { onValueChange(setting.copy(instructions = it)) },
+            minLines = 3,
+            maxLines = 6,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+
+    formItem(
+        headlineContent = { Text("指导强度") },
+        supportingContent = { Text("范围 1.0～10.0。越高越严格遵循上面的语气指导，1.0 等于只做参考。") }
+    ) {
+        OutlinedNumberInput(
+            value = setting.guidanceScale,
+            onValueChange = { onValueChange(setting.copy(guidanceScale = it.coerceIn(1f, 10f))) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+
+    switchItem(
+        checked = setting.speakerBoost,
+        onCheckedChange = { onValueChange(setting.copy(speakerBoost = it)) },
+        headlineContent = { Text("音色增强") },
+        supportingContent = {
+            Text("让输出更贴近参考音色。填写了语气指导且指导强度大于 1.0 时，服务端会忽略这一项。")
+        },
+    )
+
+    formItem(
+        headlineContent = { Text(stringResource(R.string.setting_tts_page_speed)) },
+        supportingContent = { Text("范围 0.5～2.0，1.0 为原速。只改语速不改音高。") }
+    ) {
+        OutlinedNumberInput(
+            value = setting.speed,
+            onValueChange = { onValueChange(setting.copy(speed = it.coerceIn(0.5f, 2f))) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+
+    formItem(
+        headlineContent = { Text("音量") },
+        supportingContent = { Text("范围 0.01～2.0，1.0 为原始音量，超过 1.0 可能削顶失真。") }
+    ) {
+        OutlinedNumberInput(
+            value = setting.volume,
+            onValueChange = { onValueChange(setting.copy(volume = it.coerceIn(0.01f, 2f))) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
+private fun BreezeVoicePickerDialog(
+    apiKey: String,
+    baseUrl: String,
+    onDismiss: () -> Unit,
+    onSelect: (String) -> Unit,
+) {
+    val catalog = remember { BreezeVoiceCatalog() }
+    var loading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var voices by remember { mutableStateOf<List<BreezeVoiceSummary>>(emptyList()) }
+
+    LaunchedEffect(apiKey, baseUrl) {
+        loading = true
+        error = null
+        runCatching { catalog.list(baseUrl, apiKey) }
+            .onSuccess { voices = it }
+            .onFailure { error = it.message ?: it::class.simpleName ?: "拉取失败" }
+        loading = false
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("选择音色") },
+        text = {
+            when {
+                loading -> Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CircularProgressIndicator()
+                    Text("正在拉取音色列表…")
+                }
+
+                error != null -> Text(error.orEmpty())
+
+                voices.isEmpty() -> Text("这个账号下还没有音色。")
+
+                else -> LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) {
+                    items(voices, key = { it.id }) { voice ->
+                        ListItem(
+                            headlineContent = { Text(voice.name) },
+                            supportingContent = {
+                                Text(
+                                    listOfNotNull(
+                                        voice.languageCode?.uppercase(),
+                                        voice.id,
+                                        voice.description?.take(60),
+                                    ).joinToString(" · ")
+                                )
+                            },
+                            modifier = Modifier.clickable { onSelect(voice.id) },
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("取消") }
+        },
+    )
+}
+

@@ -283,6 +283,56 @@ sealed class TTSProviderSetting {
         }
     }
 
+    /**
+     * Breeze Blue TTS (https://docs.breezeblue.ai)
+     *
+     * 形态与 ElevenLabs 同构但语义不同, 不能直接复用 ElevenLabs 通道:
+     * - 音色 ID 落在 path (`/v1/text-to-speech/{voice_id}`), 形如 `voc_xxxxxxxxxxxx`
+     * - `output_format` 落在 query, 是**封闭枚举**, 不接受 ElevenLabs 的 `mp3_44100_128`
+     * - `voice_settings` 只认 guidance_scale / use_speaker_boost / speed / volume,
+     *   没有 ElevenLabs 的 stability / similarity_boost
+     * - `instructions` 是它的核心能力: 用自然语言描述语气情绪, 由 [guidanceScale] 控制服从强度
+     * - 鉴权走 `xi-api-key` 请求头, key 形如 `brz_xxxxxxxx`
+     *
+     * 首次合成该音色时服务端可能要预载参考音频 (实测一次 ~98s), 因此超时设得比其它 provider 宽。
+     */
+    @Serializable
+    @SerialName("breeze")
+    data class Breeze(
+        override var id: Uuid = Uuid.random(),
+        override var name: String = "Breeze TTS",
+        val apiKey: String = "",
+        val baseUrl: String = "https://api.breeze.blue",
+        // breeze-tts-2 (en/zh) | breeze-tts-2-multilingual (51 种语言)
+        val model: String = "breeze-tts-2",
+        // 从 GET /v1/voices 拿到的 voice_id, 形如 voc_xeh3w54cqvnp
+        val voiceId: String = "",
+        // 封闭枚举, 见 BREEZE_OUTPUT_FORMATS
+        val outputFormat: String = "mp3",
+        // ISO 639-1 两位语言码; 留空则不下发, 由服务端按文本处理
+        val languageCode: String = "",
+        // 自然语言语气指导, 与文本同语言; 留空则不下发
+        val instructions: String = "",
+        // 1.0 - 10.0, 控制对 instructions 的服从强度
+        val guidanceScale: Float = 1.0f,
+        // 提升与参考音色的相似度; 当 instructions 非空且 guidanceScale > 1.0 时服务端会忽略
+        val speakerBoost: Boolean = false,
+        // 0.5 - 2.0
+        val speed: Float = 1.0f,
+        // 0.01 - 2.0
+        val volume: Float = 1.0f,
+    ) : TTSProviderSetting() {
+        override fun copyProvider(
+            id: Uuid,
+            name: String,
+        ): TTSProviderSetting {
+            return this.copy(
+                id = id,
+                name = name,
+            )
+        }
+    }
+
     @Serializable
     @SerialName("volcengine")
     data class Volcengine(
@@ -299,6 +349,32 @@ sealed class TTSProviderSetting {
     }
 
     companion object {
+        /**
+         * Breeze 的 output_format 是服务端封闭枚举, 传未列出的值会在参数校验阶段直接 422。
+         * 注意这里刻意不含 flac: 客户端的 [me.rerere.tts.model.AudioFormat] 没有 FLAC,
+         * 声明错了会让播放器按错误格式解码。
+         */
+        val BREEZE_OUTPUT_FORMATS = listOf(
+            "mp3",
+            "mp3_24000_64",
+            "mp3_24000_96",
+            "mp3_24000_128",
+            "mp3_24000_160",
+            "wav",
+            "wav_24000",
+            "pcm",
+            "pcm_24000",
+            "aac",
+            "aac_24000_128",
+            "opus",
+        )
+
+        /** Breeze 的两个模型及其语言覆盖, 供设置页展示。 */
+        val BREEZE_MODELS = listOf(
+            "breeze-tts-2" to "Breeze TTS 2 (en / zh)",
+            "breeze-tts-2-multilingual" to "Breeze TTS 2 Multilingual (51 语言)",
+        )
+
         val Types by lazy {
             listOf(
                 OpenAI::class,
@@ -313,6 +389,7 @@ sealed class TTSProviderSetting {
                 Step::class,
                 FishAudio::class,
                 Volcengine::class,
+                Breeze::class,
             )
         }
     }
