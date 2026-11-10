@@ -30,6 +30,7 @@ import me.rerere.hugeicons.HugeIcons
 import me.rerere.hugeicons.stroke.ArrowLeft01
 import me.rerere.hugeicons.stroke.ArrowRight01
 import me.rerere.hugeicons.stroke.Cancel01
+import me.rerere.hugeicons.stroke.CircleArrowReload01
 import me.rerere.hugeicons.stroke.Forward02
 import me.rerere.hugeicons.stroke.Pause
 import me.rerere.hugeicons.stroke.Play
@@ -146,8 +147,12 @@ private fun PlayPauseButton(
                     ttsState.pause()
                 }
 
-                else -> {
+                PlaybackStatus.Paused, PlaybackStatus.Buffering -> {
                     ttsState.resume()
+                }
+
+                else -> {
+                    ttsState.replay()
                 }
             }
         },
@@ -157,7 +162,11 @@ private fun PlayPauseButton(
         )
     ) {
         Icon(
-            imageVector = if (playbackState.status == PlaybackStatus.Playing) HugeIcons.Pause else HugeIcons.Play,
+            imageVector = when (playbackState.status) {
+                PlaybackStatus.Playing -> HugeIcons.Pause
+                PlaybackStatus.Paused, PlaybackStatus.Buffering -> HugeIcons.Play
+                else -> HugeIcons.CircleArrowReload01
+            },
             contentDescription = null,
         )
         if (playbackState.status == PlaybackStatus.Playing || playbackState.status == PlaybackStatus.Buffering || playbackState.status == PlaybackStatus.Paused) {

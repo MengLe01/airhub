@@ -104,6 +104,9 @@ interface CustomTtsState {
     /** Resumes the paused playback. */
     fun resume()
 
+    /** Replays the current speech from the beginning, reusing already synthesized audio. */
+    fun replay()
+
     /** Skips to the next chunk in the queue. */
     fun skipNext()
 
@@ -159,6 +162,11 @@ private class CustomTtsStateImpl(
     override fun resume() {
         controller.resume()
         Log.d("CustomTtsState", "TTS resumed")
+    }
+
+    override fun replay() {
+        controller.replay()
+        Log.d("CustomTtsState", "TTS replay")
     }
 
     override fun skipNext() {

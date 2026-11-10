@@ -37,6 +37,11 @@ class TextChunker(
     }
 }
 
+/**
+ * 一个待合成的文本分片。
+ * [id] 只是切分时的占位，真正用于缓存的是 TtsController 按「供应商配置 + 文本」算出的稳定 ID，
+ * 这样同一段文字在任何时候都会命中同一份已合成的音频。
+ */
 data class TtsChunk(
     val id: java.util.UUID = java.util.UUID.randomUUID(),
     val index: Int,
