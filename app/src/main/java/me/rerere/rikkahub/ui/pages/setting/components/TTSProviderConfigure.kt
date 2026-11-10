@@ -30,6 +30,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CancellationException
 import me.rerere.hugeicons.HugeIcons
 import me.rerere.hugeicons.stroke.View
 import me.rerere.hugeicons.stroke.ViewOff
@@ -1540,9 +1541,13 @@ private fun BreezeVoicePickerDialog(
     LaunchedEffect(apiKey, baseUrl) {
         loading = true
         error = null
-        runCatching { catalog.list(baseUrl, apiKey) }
-            .onSuccess { voices = it }
-            .onFailure { error = it.message ?: it::class.simpleName ?: "拉取失败" }
+        try {
+            voices = catalog.list(baseUrl, apiKey)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            error = e.message ?: "拉取失败"
+        }
         loading = false
     }
 
