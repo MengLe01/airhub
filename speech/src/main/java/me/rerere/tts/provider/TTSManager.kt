@@ -4,6 +4,7 @@ import android.content.Context
 import kotlinx.coroutines.flow.Flow
 import me.rerere.tts.model.AudioChunk
 import me.rerere.tts.model.TTSRequest
+import me.rerere.tts.provider.providers.BreezeTTSProvider
 import me.rerere.tts.provider.providers.DeepSeekTTSProvider
 import me.rerere.tts.provider.providers.ElevenLabsTTSProvider
 import me.rerere.tts.provider.providers.FishAudioTTSProvider
@@ -32,6 +33,7 @@ class TTSManager(private val context: Context) {
     private val fishAudioProvider = FishAudioTTSProvider()
     private val volcengineProvider = VolcengineTTSProvider()
     private val deepSeekProvider = DeepSeekTTSProvider()
+    private val breezeProvider = BreezeTTSProvider()
 
     fun generateSpeech(
         providerSetting: TTSProviderSetting,
@@ -51,6 +53,7 @@ class TTSManager(private val context: Context) {
             is TTSProviderSetting.Step -> stepProvider.generateSpeech(context, providerSetting, request)
             is TTSProviderSetting.Volcengine -> volcengineProvider.generateSpeech(context, providerSetting, request)
             is TTSProviderSetting.DeepSeek -> deepSeekProvider.generateSpeech(context, providerSetting, request)
+            is TTSProviderSetting.Breeze -> breezeProvider.generateSpeech(context, providerSetting, request)
         }
     }
 
@@ -73,6 +76,7 @@ class TTSManager(private val context: Context) {
             is TTSProviderSetting.Step -> stepProvider.promptGuidance
             is TTSProviderSetting.Volcengine -> volcengineProvider.promptGuidance
             is TTSProviderSetting.DeepSeek -> deepSeekProvider.promptGuidance
+            is TTSProviderSetting.Breeze -> breezeProvider.promptGuidance
         }
     }
 }

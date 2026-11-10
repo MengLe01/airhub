@@ -69,6 +69,9 @@ AirHub 是基于 [RikkaHub](https://github.com/rikkahub/rikkahub) 的二次开�
 - 备份与恢复页把 WebDAV 放在第一个标签
 - 「关于」那一行右侧的 QQ 群和 Discord 入口去掉
 - 语音设置里内置的 AiHubMix TTS 可以删除，删掉之后不会再被自动补回
+- 新增 Breeze Blue 语音供应商。它的接口形状和 ElevenLabs 相似但字段不同，所以单独做了一路：
+  可以写自然语言语气指导并调节指导强度、开关音色增强、调语速和音量、选输出格式，
+  音色不用手抄 ID，能从账号里直接拉列表点选
 
 ## 移除的上游内容
 
