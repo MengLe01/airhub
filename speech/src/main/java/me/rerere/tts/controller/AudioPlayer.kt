@@ -119,6 +119,12 @@ class AudioPlayer(context: Context) {
             }
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
+                // 播到结尾时 ExoPlayer 同样会回调 isPlaying=false，但那是「播完了」不是「暂停」。
+                // 若在这里写成 Paused，上层会停在一个假的暂停态：点播放只走 resume()，
+                // 而音频已经播完，表现就是「图标变了但没声音」。
+                if (!isPlaying && player.playbackState == Player.STATE_ENDED) {
+                    return
+                }
                 val status = if (isPlaying) PlaybackStatus.Playing else PlaybackStatus.Paused
                 _playbackState.update { it.copy(status = status) }
                 if (isPlaying) startPositionUpdates() else stopPositionUpdates()

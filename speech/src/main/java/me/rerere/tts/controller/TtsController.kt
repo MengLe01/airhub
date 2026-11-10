@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -17,6 +18,8 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import me.rerere.tts.model.PlaybackState
 import me.rerere.tts.model.PlaybackStatus
 import me.rerere.tts.model.TTSResponse
@@ -25,10 +28,26 @@ import me.rerere.tts.provider.TTSProviderException
 import me.rerere.tts.provider.TTSProviderSetting
 import java.io.IOException
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.atomic.AtomicLong
 
 private const val TAG = "TtsController"
 private const val MAX_SYNTHESIS_ATTEMPTS = 3
 private const val SYNTHESIS_RETRY_BASE_DELAY_MS = 500L
+
+// 已合成音频的内存缓存上限，超出后按最久未使用淘汰
+private const val MAX_CACHE_BYTES = 48L * 1024 * 1024
+private const val MAX_CACHE_ENTRIES = 256
+
+// 这些字段不影响合成结果，不参与缓存键（换密钥或改名字不该让音频失效）
+private val IGNORED_PROVIDER_FIELDS = setOf("id", "name", "apiKey")
+
+// encodeDefaults 保证同一份配置生成的键稳定；模型或音色一变，键就跟着变
+private val cacheKeyJson = Json {
+    encodeDefaults = true
+    ignoreUnknownKeys = true
+}
 
 /**
  * TTS 控制器（重构版）
@@ -52,10 +71,13 @@ class TtsController(
     private var workerJob: Job? = null
     private var isPaused = false
 
-    // 队列与缓存（基于稳定 ID）
-    private val queue: java.util.concurrent.ConcurrentLinkedQueue<TtsChunk> = java.util.concurrent.ConcurrentLinkedQueue()
+    // 队列与缓存（基于稳定 ID：同样的供应商配置 + 同样的文本 → 同样的键）
+    private val queue: ConcurrentLinkedQueue<TtsChunk> = ConcurrentLinkedQueue()
     private val allChunks: MutableList<TtsChunk> = mutableListOf()
-    private val cache = java.util.concurrent.ConcurrentHashMap<UUID, kotlinx.coroutines.Deferred<TTSResponse>>()
+    private val cache = ConcurrentHashMap<UUID, CacheEntry>()
+
+    // 只增不减的访问序号，用来判断哪个缓存条目最久没被用过
+    private val cacheAccessSeq = AtomicLong()
 
     // 行为参数
     private val chunkDelayMs = 120L
@@ -98,9 +120,15 @@ class TtsController(
 
     /** 选择/取消选择 Provider */
     fun setProvider(provider: TTSProviderSetting?) {
+        val previous = currentProvider
         currentProvider = provider
         _isAvailable.update { provider != null }
-        if (provider == null) stop()
+        if (provider == null) {
+            hardReset()
+        } else if (previous != null && providerFingerprint(previous) != providerFingerprint(provider)) {
+            // 模型或音色变了，旧缓存对应的键已经不再成立（只改名字或密钥不算）
+            hardReset()
+        }
     }
 
     /**
@@ -116,7 +144,8 @@ class TtsController(
             return
         }
 
-        val newChunks = chunker.split(text)
+        val fingerprint = providerFingerprint(provider)
+        val newChunks = chunker.split(text).map { it.copy(id = stableChunkId(fingerprint, it.text)) }
         if (newChunks.isEmpty()) return
 
         if (flush) {
@@ -145,16 +174,19 @@ class TtsController(
         if (workerJob?.isActive != true) startWorker()
     }
 
+    /**
+     * 开始新一次朗读前清理播放现场。
+     * 已经合成好的音频会留在缓存里（下次读同样的内容可直接复用），
+     * 只有还在合成中的请求会被取消，避免停下来之后仍在后台消耗接口额度。
+     */
     private fun internalReset() {
-        // Reset current session while keeping provider availability
         workerJob?.cancel()
         audio.stop()
         audio.clear()
         isPaused = false
         queue.clear()
         allChunks.clear()
-        cache.values.forEach { it.cancel(CancellationException("Reset")) }
-        cache.clear()
+        cancelInFlightSynthesis()
         _isSpeaking.update { false }
         _currentChunk.update { 0 }
         _totalChunks.update { 0 }
@@ -176,6 +208,33 @@ class TtsController(
         _playbackState.update { it.copy(status = PlaybackStatus.Playing) }
     }
 
+    /**
+     * 从头重播当前会话。
+     * 分片文本没有变，缓存键也就没变，已经合成过的分段会直接命中，不再请求接口。
+     */
+    fun replay() {
+        if (allChunks.isEmpty()) return
+        if (currentProvider == null) {
+            _error.update { "No TTS provider selected" }
+            return
+        }
+        if (queue.isNotEmpty()) queue.clear()
+        queue.addAll(allChunks)
+        _currentChunk.update { 0 }
+        _totalChunks.update { allChunks.size }
+        _error.update { null }
+        _playbackState.update {
+            it.copy(
+                currentChunkIndex = 0,
+                totalChunks = allChunks.size,
+                positionMs = 0L,
+                durationMs = 0L,
+                status = PlaybackStatus.Buffering
+            )
+        }
+        if (workerJob?.isActive != true) startWorker()
+    }
+
     /** 快进当前音频 */
     fun fastForward(ms: Long = 5_000) {
         audio.seekBy(ms)
@@ -194,28 +253,104 @@ class TtsController(
         }
     }
 
-    /** 停止并清空状态 */
+    /**
+     * 停止播放并结束当前会话。
+     * 分片表和已合成的音频都会保留，所以关掉浮窗之后仍然可以重放；
+     * 只取消还在合成中的请求（它们的结果已经没人要了）。
+     */
     fun stop() {
         workerJob?.cancel()
         audio.stop()
         audio.clear()
         isPaused = false
         queue.clear()
+        cancelInFlightSynthesis()
+        _isSpeaking.update { false }
+        _currentChunk.update { 0 }
+        _totalChunks.update { allChunks.size }
+        _playbackState.update { PlaybackState(status = PlaybackStatus.Idle) }
+    }
+
+    /** 丢弃当前会话的全部分片与缓存（切换供应商或释放资源时使用） */
+    private fun hardReset() {
+        workerJob?.cancel()
+        audio.stop()
+        audio.clear()
+        isPaused = false
+        queue.clear()
         allChunks.clear()
-        cache.values.forEach { it.cancel(CancellationException("Stopped")) }
+        cache.values.forEach { it.deferred.cancel(CancellationException("Reset")) }
         cache.clear()
         _isSpeaking.update { false }
         _currentChunk.update { 0 }
         _totalChunks.update { 0 }
+        _error.update { null }
         _playbackState.update { PlaybackState(status = PlaybackStatus.Idle) }
     }
 
     /** 释放资源 */
     fun dispose() {
-        stop()
+        hardReset()
         scope.cancel()
         audio.release()
     }
+
+    // region 内部：缓存
+    /**
+     * 用「供应商配置 + 分片文本」派生一个稳定 ID。
+     * 同样的音色、同样的文字永远得到同一个键；音色或文本一变，键就跟着变，旧缓存自然失效。
+     */
+    private fun stableChunkId(fingerprint: String, text: String): UUID {
+        val payload = buildString {
+            append(fingerprint)
+            append('\u0000')
+            append(text.length)
+            append('\u0000')
+            append(text)
+        }
+        return UUID.nameUUIDFromBytes(payload.toByteArray(Charsets.UTF_8))
+    }
+
+    private fun providerFingerprint(provider: TTSProviderSetting): String {
+        val element = runCatching {
+            cacheKeyJson.encodeToJsonElement(TTSProviderSetting.serializer(), provider).jsonObject
+        }.getOrNull() ?: return provider.id.toString()
+        return element.entries
+            .asSequence()
+            .filter { it.key !in IGNORED_PROVIDER_FIELDS }
+            .sortedBy { it.key }
+            .joinToString(separator = ";") { "${it.key}=${it.value}" }
+    }
+
+    /** 取消还没合成完的请求并移出缓存，已完成的条目保持不动 */
+    private fun cancelInFlightSynthesis() {
+        cache.entries.forEach { (id, entry) ->
+            if (!entry.deferred.isCompleted) {
+                entry.deferred.cancel(CancellationException("Cancelled"))
+                cache.remove(id, entry)
+            }
+        }
+    }
+
+    private fun evictCacheIfNeeded() {
+        val totalBytes = cache.values.sumOf { it.sizeBytes.toLong() }
+        if (totalBytes <= MAX_CACHE_BYTES && cache.size <= MAX_CACHE_ENTRIES) return
+
+        val victims = cache.entries
+            .filter { it.value.deferred.isCompleted && !it.value.deferred.isCancelled }
+            .sortedBy { it.value.lastAccessSeq }
+            .map { it.key }
+
+        var remainingBytes = totalBytes
+        var remainingEntries = cache.size
+        for (id in victims) {
+            if (remainingBytes <= MAX_CACHE_BYTES && remainingEntries <= MAX_CACHE_ENTRIES) break
+            val removed = cache.remove(id) ?: continue
+            remainingBytes -= removed.sizeBytes
+            remainingEntries -= 1
+        }
+    }
+    // endregion
 
     // region 内部：播放调度
     private fun startWorker() {
@@ -299,8 +434,15 @@ class TtsController(
         return try {
             deferred.await()
         } catch (e: Exception) {
-            // 避免后续复用已经失败或取消的 Deferred
-            cache.remove(chunk.id, deferred)
+            // 失败或被取消的结果不能留，否则下次会命中一个只会抛异常的条目。
+            // 注意要按「条目身份」删除：同一段文本可能已经被新一次朗读重新写进缓存，
+            // 无条件 remove 会把新的那条也删掉。
+            if (e is CancellationException || deferred.isCancelled) {
+                val cached = cache[chunk.id]
+                if (cached != null && cached.deferred === deferred) {
+                    cache.remove(chunk.id, cached)
+                }
+            }
             throw e
         }
     }
@@ -308,12 +450,41 @@ class TtsController(
     private fun getOrCreateSynthesis(
         chunk: TtsChunk,
         provider: TTSProviderSetting
-    ): kotlinx.coroutines.Deferred<TTSResponse> {
-        return cache.computeIfAbsent(chunk.id) {
-            scope.async(Dispatchers.IO) {
-                synthesizeWithRetry(provider, chunk)
+    ): Deferred<TTSResponse> {
+        val cached = cache[chunk.id]
+        if (cached != null) {
+            if (!cached.deferred.isCancelled) {
+                cached.lastAccessSeq = cacheAccessSeq.incrementAndGet()
+                return cached.deferred
+            }
+            // 已取消的条目不会再产出结果，移除后重建
+            cache.remove(chunk.id, cached)
+        }
+
+        val deferred = scope.async(Dispatchers.IO) {
+            synthesizeWithRetry(provider, chunk)
+        }
+        val entry = CacheEntry(deferred)
+        val existing = cache.putIfAbsent(chunk.id, entry)
+        if (existing != null) {
+            // 并发下别人先放进去了，丢弃这一次多余的请求
+            deferred.cancel()
+            existing.lastAccessSeq = cacheAccessSeq.incrementAndGet()
+            return existing.deferred
+        }
+        entry.lastAccessSeq = cacheAccessSeq.incrementAndGet()
+
+        deferred.invokeOnCompletion { cause ->
+            if (cause != null) {
+                cache.remove(chunk.id, entry)
+            } else {
+                entry.sizeBytes = runCatching {
+                    deferred.getCompleted().audioData.size
+                }.getOrDefault(0)
+                evictCacheIfNeeded()
             }
         }
+        return deferred
     }
 
     private suspend fun synthesizeWithRetry(
@@ -342,6 +513,16 @@ class TtsController(
         }
     }
     // endregion
+
+    private class CacheEntry(
+        val deferred: Deferred<TTSResponse>
+    ) {
+        @Volatile
+        var lastAccessSeq: Long = 0L
+
+        @Volatile
+        var sizeBytes: Int = 0
+    }
 }
 
 private fun Exception.isRetryableSynthesisError(): Boolean {
