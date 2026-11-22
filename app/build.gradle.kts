@@ -95,15 +95,18 @@ android {
         }
     }
     // 按分发渠道区分：github 是 GitHub Release / 手动构建的 APK，play 是上架 Google Play 的 AAB
-    // 两个渠道共用同一个 applicationId；AirHub 不在应用内更新，渠道之间没有行为差异
+    // 两个渠道共用同一个 applicationId。AirHub 不在应用内更新，但无障碍操作手机、工作区存储挂载
+    // 这类受 Play 政策限制的入口仍要靠这个开关关掉，所以字段必须保留
     flavorDimensions += "distribution"
     productFlavors {
         create("github") {
             dimension = "distribution"
             isDefault = true
+            buildConfigField("boolean", "IS_PLAY_STORE", "false")
         }
         create("play") {
             dimension = "distribution"
+            buildConfigField("boolean", "IS_PLAY_STORE", "true")
         }
     }
     compileOptions {
