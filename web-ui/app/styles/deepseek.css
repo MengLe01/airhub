@@ -132,6 +132,8 @@
   color: var(--primary);
 }
 
+/* 「…」按钮：平时 caption 灰，悬停或菜单打开时给一层圆形浅底。
+   点击前后用同一个色，否则点开菜单的瞬间底色会跳一下。 */
 [data-theme="deepseek"] [data-sidebar="menu-action"] {
   color: var(--ds-label-caption);
   transition:
@@ -139,8 +141,22 @@
     color 150ms;
 }
 
-[data-theme="deepseek"] [data-sidebar="menu-action"]:hover {
+[data-theme="deepseek"] [data-sidebar="menu-action"]:hover,
+[data-theme="deepseek"] [data-sidebar="menu-action"][data-state="open"] {
   background-color: var(--ds-control-hover);
+  color: var(--ds-label-secondary);
+}
+
+/* 在这套结构里「…」是行按钮的兄弟节点，悬停它并不会触发行的 :hover，
+   于是只有圆圈变色、整行背景不动，和 DeepSeek 的观感不一致（那边「…」在行内）。
+   这里用 :has 把整行一起点亮，悬停「…」与菜单打开都算。 */
+[data-theme="deepseek"]
+  [data-sidebar="menu-item"]:has([data-sidebar="menu-action"]:hover)
+  [data-sidebar="menu-button"]:not([data-active="true"]),
+[data-theme="deepseek"]
+  [data-sidebar="menu-item"]:has([data-sidebar="menu-action"][data-state="open"])
+  [data-sidebar="menu-button"]:not([data-active="true"]) {
+  background-color: var(--ds-sidebar-hover);
   color: var(--ds-label-secondary);
 }
 
