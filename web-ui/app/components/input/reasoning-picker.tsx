@@ -1,7 +1,7 @@
 import * as React from "react";
 
 import { useMutation } from "@tanstack/react-query";
-import { Brain, BrainCircuit, Lightbulb, LightbulbOff, LoaderCircle, Sparkles } from "lucide-react";
+import { Brain, BrainCircuit, Lightbulb, LightbulbOff, Sparkles } from "lucide-react";
 import { Slider as SliderPrimitive } from "radix-ui";
 import { useTranslation } from "react-i18next";
 
@@ -228,7 +228,6 @@ export function ReasoningPickerButton({
         >
           <ReasoningIcon level={localLevel} className="size-3.5" />
           <span className="hidden sm:block">{localPreset.label}</span>
-          {loading ? <LoaderCircle className="size-3.5 animate-spin" /> : null}
         </Button>
       </PopoverTrigger>
 

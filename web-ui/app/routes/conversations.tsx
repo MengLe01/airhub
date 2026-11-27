@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router";
 
 import {
   ConversationQuickJump,
+  type ConversationQuickJumpItem,
   getConversationMessageAnchorId,
 } from "~/components/conversation-quick-jump";
 import { ConversationSidebar } from "~/components/conversation-sidebar";
@@ -589,16 +590,28 @@ const ConversationTimeline = React.memo(
     const { t } = useTranslation("page");
     const canQuickJump =
       Boolean(activeId) && !detailLoading && !detailError && selectedNodeMessages.length > 1;
-    // 每次渲染都新建数组会让 quick jump 里的监听与缓存全部作废，这里固定引用
+    // 每个「轮次」一个刻度：以用户消息为起点，它后面的助手回复、工具结果都算同一轮，
+    // 直到下一条用户消息为止。定位目标就是该轮的用户消息。
+    // 每次渲染都新建数组会让 quick jump 里的监听与缓存全部作废，这里固定引用。
     const quickJumpItems = React.useMemo(() => {
       if (!canQuickJump) return [];
-      return selectedNodeMessages
-        .filter(({ message }) => !isNoticeOnly(message))
-        .map(({ message }) => ({
-          id: message.id,
-          role: message.role,
-          preview: getQuickJumpPreview(message, t),
-        }));
+
+      const turns: ConversationQuickJumpItem[] = [];
+      for (const { message } of selectedNodeMessages) {
+        if (isNoticeOnly(message)) continue;
+
+        if (message.role === "USER" || turns.length === 0) {
+          turns.push({
+            id: message.id,
+            role: "USER",
+            preview: getQuickJumpPreview(message, t),
+          });
+          continue;
+        }
+
+        // 这一轮已经以用户消息开头，后续内容不再单独占位
+      }
+      return turns;
     }, [canQuickJump, selectedNodeMessages, t]);
     const assistant = React.useMemo(() => {
       if (!settings || !conversationAssistantId) return null;

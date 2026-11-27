@@ -115,21 +115,20 @@
   background-color: var(--ds-sidebar-hover);
 }
 
-/* 选中条目用品牌蓝，且不加粗（ui/sidebar.tsx 默认给 active 加了 font-medium） */
-[data-theme="deepseek"] [data-sidebar="menu-button"][data-active="true"] {
+/* 选中条目用品牌蓝，且不加粗（ui/sidebar.tsx 默认给 active 加了 font-medium）。
+   要放在所有 :hover 规则之后、并同样写满各悬停分支，
+   否则悬停时会被后出现的规则盖成普通色。 */
+[data-theme="deepseek"] [data-sidebar="menu-button"][data-active="true"],
+[data-theme="deepseek"] [data-sidebar="menu-button"][data-active="true"]:hover,
+[data-theme="deepseek"]
+  [data-sidebar="menu-item"]:has([data-sidebar="menu-action"]:hover)
+  [data-sidebar="menu-button"][data-active="true"],
+[data-theme="deepseek"]
+  [data-sidebar="menu-item"]:has([data-sidebar="menu-action"][data-state="open"])
+  [data-sidebar="menu-button"][data-active="true"] {
   color: var(--primary);
   font-weight: 400;
-}
-
-/* 悬停时标题跟着变浅灰，和 DeepSeek 一致：整行只给背景，文字不再保持近黑，
-   否则背景变浅、文字没变，反而比未悬停时更抢眼。
-   「…」也用同一档灰，悬停时再给它一层圆形浅底（DS 的 IconButton 行为）。 */
-[data-theme="deepseek"] [data-sidebar="menu-button"]:hover:not([data-active="true"]) {
-  color: var(--ds-label-secondary);
-}
-
-[data-theme="deepseek"] [data-sidebar="menu-button"][data-active="true"]:hover {
-  color: var(--primary);
+  background-color: var(--sidebar-accent);
 }
 
 /* 会话行与重命名输入框的圆角固定 12px，与 DeepSeek 一致。
@@ -156,7 +155,8 @@
 
 /* 在这套结构里「…」是行按钮的兄弟节点，悬停它并不会触发行的 :hover，
    于是只有圆圈变色、整行背景不动，和 DeepSeek 的观感不一致（那边「…」在行内）。
-   这里用 :has 把整行一起点亮，悬停「…」与菜单打开都算。 */
+   这里用 :has 把整行背景一起点亮，悬停「…」与菜单打开都算。
+   只改背景，不改文字颜色——DeepSeek 的悬停同样只调背景。 */
 [data-theme="deepseek"]
   [data-sidebar="menu-item"]:has([data-sidebar="menu-action"]:hover)
   [data-sidebar="menu-button"]:not([data-active="true"]),
@@ -164,7 +164,6 @@
   [data-sidebar="menu-item"]:has([data-sidebar="menu-action"][data-state="open"])
   [data-sidebar="menu-button"]:not([data-active="true"]) {
   background-color: var(--ds-sidebar-hover);
-  color: var(--ds-label-secondary);
 }
 
 /* 侧边栏滚动区：始终预留滚动条槽位。
@@ -231,16 +230,27 @@
 
 /* ---------- 消息定位条 ---------- */
 
-/* 贴正文栏右侧的一条细刻度，滚动静止后淡出，鼠标移上去常显 */
+/* 贴正文栏右侧的一条细刻度，滚动静止后淡出，鼠标移上去常显。
+   轮次多时不能无限拉长：限制在可视区一半高度内，超出改为内部滚动，
+   否则刻度会顶出容器、两端的条被裁掉。 */
 .ds-quick-jump-rail {
   right: clamp(14px, calc((100% - var(--ds-chat-column)) / 2 - 14px), 24px);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
+  max-height: 50vh;
+  overflow-y: auto;
+  overflow-x: hidden;
   transform: translateY(-50%);
   opacity: 0;
   transition: opacity 300ms;
+  /* 刻度自己不需要滚动条，滚轮交给外层消息列表 */
+  scrollbar-width: none;
+}
+
+.ds-quick-jump-rail::-webkit-scrollbar {
+  display: none;
 }
 
 .ds-quick-jump-rail[data-visible="true"],

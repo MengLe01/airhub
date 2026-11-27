@@ -5,6 +5,7 @@ import { LoaderCircle, PackageIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { useCurrentAssistant } from "~/hooks/use-current-assistant";
+import { useSettingsStore } from "~/stores";
 import { usePickerPopover } from "~/hooks/use-picker-popover";
 import { getDisplayName } from "~/lib/display";
 import { extractErrorMessage } from "~/lib/error";
@@ -14,12 +15,7 @@ import api from "~/services/api";
 import type { ConversationDto, LorebookProfile, ModeInjectionProfile, QuickMessage } from "~/types";
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTitle,
-  PopoverTrigger,
-} from "~/components/ui/popover";
+import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "~/components/ui/popover";
 
 import { PickerErrorAlert } from "./picker-error-alert";
 
@@ -74,6 +70,7 @@ export function ExtensionPickerButton({
 }: ExtensionPickerButtonProps) {
   const { t } = useTranslation("input");
   const { settings, currentAssistant } = useCurrentAssistant();
+  const setSettings = useSettingsStore((state) => state.setSettings);
 
   const [activeTab, setActiveTab] = React.useState<ActiveTab>("quickmessages");
 
@@ -114,17 +111,48 @@ export function ExtensionPickerButton({
   );
   // 会话开始后注入固定在会话上，开始前跟随助手。
   // 旧会话在服务端固定配置之前 config 为空，此时仍然显示助手的，固定时会继承过去。
+  // 会话级注入跟着会话走，settings 里没有会话对象，单独记一份覆盖值，
+  // 让本面板立刻反映点击结果（切到别的会话时自然失效）。
+  const [conversationInjectionOverride, setConversationInjectionOverride] = React.useState<{
+    conversationId: string;
+    modeInjectionIds: string[];
+    lorebookIds: string[];
+  } | null>(null);
+
+  const setConversationInjections = React.useCallback(
+    (conversationId: string, modeInjectionIds: string[], lorebookIds: string[]) => {
+      setConversationInjectionOverride({ conversationId, modeInjectionIds, lorebookIds });
+    },
+    [],
+  );
+
   const conversationBound = conversation?.config != null;
   const conversationModeInjectionIds = conversation?.modeInjectionIds;
   const conversationLorebookIds = conversation?.lorebookIds;
+
+  // 刚在面板里点过的会话，用本地结果覆盖，避免等下一次 settings 推送才更新
+  const localOverride =
+    conversation && conversationInjectionOverride?.conversationId === conversation.id
+      ? conversationInjectionOverride
+      : null;
+
   const selectedModeInjectionIds = React.useMemo(
     () =>
-      conversationBound ? safeStringArray(conversationModeInjectionIds) : assistantModeInjectionIds,
-    [assistantModeInjectionIds, conversationBound, conversationModeInjectionIds],
+      localOverride
+        ? localOverride.modeInjectionIds
+        : conversationBound
+          ? safeStringArray(conversationModeInjectionIds)
+          : assistantModeInjectionIds,
+    [assistantModeInjectionIds, conversationBound, conversationModeInjectionIds, localOverride],
   );
   const selectedLorebookIds = React.useMemo(
-    () => (conversationBound ? safeStringArray(conversationLorebookIds) : assistantLorebookIds),
-    [assistantLorebookIds, conversationBound, conversationLorebookIds],
+    () =>
+      localOverride
+        ? localOverride.lorebookIds
+        : conversationBound
+          ? safeStringArray(conversationLorebookIds)
+          : assistantLorebookIds,
+    [assistantLorebookIds, conversationBound, conversationLorebookIds, localOverride],
   );
 
   const selectedCount =
@@ -146,6 +174,33 @@ export function ExtensionPickerButton({
       setActiveTab("lorebook");
     }
   }, [quickMessages.length, modeInjections.length, lorebooks.length]);
+
+  // 助手级接口只返回 { status }，把结果写回 settings，面板与角标才会立刻反映变化。
+  const patchAssistantExtensions = React.useCallback(
+    (variables: {
+      assistantId: string;
+      modeInjectionIds: string[];
+      lorebookIds: string[];
+      quickMessageIds: string[];
+    }) => {
+      const current = useSettingsStore.getState().settings;
+      if (!current) return;
+      setSettings({
+        ...current,
+        assistants: current.assistants.map((assistant) =>
+          assistant.id === variables.assistantId
+            ? {
+                ...assistant,
+                modeInjectionIds: variables.modeInjectionIds,
+                lorebookIds: variables.lorebookIds,
+                quickMessageIds: variables.quickMessageIds,
+              }
+            : assistant,
+        ),
+      });
+    },
+    [setSettings],
+  );
 
   const updateAssistantExtensionsMutation = useMutation({
     mutationFn: ({
@@ -169,7 +224,12 @@ export function ExtensionPickerButton({
     onError: (updateError) => {
       setError(extractErrorMessage(updateError, t("injection.update_failed")));
     },
-    onSuccess: () => setError(null),
+    // 写回本地 settings：这个接口只返回 { status }，不写回的话面板读到的还是旧值，
+    // 表现为开关点了没反应、关掉的项再也打不开、角标数目也停在旧数
+    onSuccess: (_data, variables) => {
+      setError(null);
+      patchAssistantExtensions(variables);
+    },
   });
 
   const updateConversationInjectionsMutation = useMutation({
@@ -190,7 +250,15 @@ export function ExtensionPickerButton({
     onError: (updateError) => {
       setError(extractErrorMessage(updateError, t("injection.update_failed")));
     },
-    onSuccess: () => setError(null),
+    onSuccess: (_data, variables) => {
+      setError(null);
+      // 用本次提交的值回填：响应里的这两个字段是可选的，不一定带回来
+      setConversationInjections(
+        variables.conversationId,
+        variables.modeInjectionIds,
+        variables.lorebookIds,
+      );
+    },
   });
 
   const isUpdating =
@@ -352,7 +420,12 @@ export function ExtensionPickerButton({
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent side="top" align="end" sideOffset={8} className="w-[min(92vw,20rem)] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto space-y-3 p-4">
+      <PopoverContent
+        side="top"
+        align="end"
+        sideOffset={8}
+        className="w-[min(92vw,20rem)] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto space-y-3 p-4"
+      >
         <PopoverTitle className="text-sm">{t("injection.title")}</PopoverTitle>
 
         <div className="space-y-3">
@@ -459,12 +532,11 @@ export function ExtensionPickerButton({
                 <div className="space-y-2">
                   {modeInjections.map((item) => {
                     const checked = selectedModeInjectionIds.includes(item.id);
-                    const switching =
-                      conversation
-                        ? updateConversationInjectionsMutation.isPending &&
-                          updateConversationInjectionsMutation.variables?.key === `mode:${item.id}`
-                        : updateAssistantExtensionsMutation.isPending &&
-                          updateAssistantExtensionsMutation.variables?.key === `mode:${item.id}`;
+                    const switching = conversation
+                      ? updateConversationInjectionsMutation.isPending &&
+                        updateConversationInjectionsMutation.variables?.key === `mode:${item.id}`
+                      : updateAssistantExtensionsMutation.isPending &&
+                        updateAssistantExtensionsMutation.variables?.key === `mode:${item.id}`;
 
                     return (
                       <label
@@ -508,13 +580,11 @@ export function ExtensionPickerButton({
               <div className="space-y-2">
                 {lorebooks.map((item) => {
                   const checked = selectedLorebookIds.includes(item.id);
-                  const switching =
-                    conversation
-                      ? updateConversationInjectionsMutation.isPending &&
-                        updateConversationInjectionsMutation.variables?.key ===
-                          `lorebook:${item.id}`
-                      : updateAssistantExtensionsMutation.isPending &&
-                        updateAssistantExtensionsMutation.variables?.key === `lorebook:${item.id}`;
+                  const switching = conversation
+                    ? updateConversationInjectionsMutation.isPending &&
+                      updateConversationInjectionsMutation.variables?.key === `lorebook:${item.id}`
+                    : updateAssistantExtensionsMutation.isPending &&
+                      updateAssistantExtensionsMutation.variables?.key === `lorebook:${item.id}`;
 
                   return (
                     <label
