@@ -590,8 +590,10 @@ const ConversationTimeline = React.memo(
     const { t } = useTranslation("page");
     const canQuickJump =
       Boolean(activeId) && !detailLoading && !detailError && selectedNodeMessages.length > 1;
-    // 每个「轮次」一个刻度：以用户消息为起点，它后面的助手回复、工具结果都算同一轮，
-    // 直到下一条用户消息为止。定位目标就是该轮的用户消息。
+    // 每个「轮次」一个刻度：遇到的用户消息开启新的一轮，它后面的助手回复、工具结果
+    // 都归入这一轮，直到下一条用户消息为止。开头若直接是助手消息（没有用户消息打头），
+    // 这一段整体算作单独的一轮，不拆散。
+    // 于是 aaauaaauuaaa 会得到 aaa | uaaa | u | uaaa 共 4 轮。
     // 每次渲染都新建数组会让 quick jump 里的监听与缓存全部作废，这里固定引用。
     const quickJumpItems = React.useMemo(() => {
       if (!canQuickJump) return [];
@@ -603,13 +605,11 @@ const ConversationTimeline = React.memo(
         if (message.role === "USER" || turns.length === 0) {
           turns.push({
             id: message.id,
-            role: "USER",
+            // 用该轮首条消息的真实角色：开头那段可能没有用户消息，不能一律标成用户
+            role: message.role,
             preview: getQuickJumpPreview(message, t),
           });
-          continue;
         }
-
-        // 这一轮已经以用户消息开头，后续内容不再单独占位
       }
       return turns;
     }, [canQuickJump, selectedNodeMessages, t]);
