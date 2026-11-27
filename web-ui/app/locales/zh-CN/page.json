@@ -28,11 +28,18 @@
       "no_message_description": "当前会话还没有消息"
     },
     "welcome_prompt": "有什么可以帮助你的？",
+    "welcome_prompt_2": "嗨！今天想聊些什么？",
+    "welcome_prompt_3": "欢迎回来，想从哪里开始？",
+    "welcome_prompt_4": "今天想探索点什么？",
     "user": {
       "default_name": "用户"
     },
     "header": {
-      "select_conversation": "请选择会话"
+      "select_conversation": "请选择会话",
+      "scroll_to_bottom": "回到底部",
+      "share": "分享",
+      "export_markdown": "导出",
+      "export_markdown_with_reasoning": "导出（带思维链）"
     }
   }
 }

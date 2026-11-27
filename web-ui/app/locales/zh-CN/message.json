@@ -12,8 +12,12 @@
     "copy_audio": "音频",
     "copy_document": "文档",
     "copy_tool": "工具",
-    "regenerate_from_user_confirm": "将从这条用户消息重新生成，确认继续吗？",
-    "delete_confirm": "确认删除这条消息吗？",
+    "regenerate_from_user_title": "重新生成会移除这条消息之后的内容",
+    "regenerate_from_user_description": "该消息之后的对话记录将被删除，且不可恢复",
+    "delete_title": "删除后，该消息将不可恢复",
+    "delete_action": "删除该消息",
+    "cancel": "取消",
+    "context_checkpoint_delete_title": "删除后，这份摘要将不可恢复",
     "copy_message": "复制消息",
     "copy": "复制",
     "edit_message": "编辑消息",
@@ -32,6 +36,7 @@
     "tokens_per_second": "{{value}} tok/s",
     "duration_seconds": "{{value}}s",
     "step_count": "{{count}} 步",
+    "character_count": "{{count}} 字",
     "total_prompt_tokens": "累计输入 {{value}} tokens",
     "context_checkpoint": "以上内容已压缩为摘要",
     "context_checkpoint_hint": "分隔线以上的消息不再发送给模型，由这份摘要代替。删除摘要即可恢复发送完整历史。",
@@ -63,7 +68,9 @@
     "ask_user_title": "询问用户",
     "ask_user_questions_count": "询问 {{count}} 个问题",
     "ask_user_submit": "提交",
-    "ask_user_answered": "已回答"
+    "ask_user_answered": "已回答",
+    "deny_confirm": "拒绝",
+    "cancel": "取消"
   },
   "media_part": {
     "video_load_failed": "加载视频失败：{{url}}",

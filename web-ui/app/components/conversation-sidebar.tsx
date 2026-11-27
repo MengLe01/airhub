@@ -5,6 +5,7 @@ import type { TFunction } from "i18next";
 import { toast } from "sonner";
 import {
   Check,
+  CirclePlus,
   Folder,
   FolderInput,
   FolderPlus,
@@ -14,11 +15,9 @@ import {
   MoreHorizontal,
   MoveRight,
   Palette,
-  ArrowUp,
   Pencil,
   Pin,
   PinOff,
-  Plus,
   RefreshCw,
   LogOut,
   Sun,
@@ -27,8 +26,10 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { InfiniteScrollArea } from "~/components/extended/infinite-scroll-area";
+import Logo from "~/components/logo";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
+import { ConfirmDialog, PromptDialog } from "~/components/ui/confirm-dialog";
 import {
   Dialog,
   DialogContent,
@@ -53,14 +54,15 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarTrigger,
 } from "~/components/ui/sidebar";
 import { UIAvatar } from "~/components/ui/ui-avatar";
+import { useSettingsStore } from "~/stores";
 import {
   useTheme,
   type ColorTheme,
@@ -111,6 +113,10 @@ const COLOR_THEME_OPTIONS: Array<{
     labelKey: "color_default",
   },
   {
+    value: "deepseek",
+    labelKey: "color_deepseek",
+  },
+  {
     value: "claude",
     labelKey: "color_claude",
   },
@@ -137,10 +143,20 @@ const LANGUAGE_OPTIONS = [
   { value: "en-US", label: "English" },
 ] as const;
 
-type ConversationListItem =
-  | { type: "pinned-header" }
-  | { type: "date-header"; date: string; label: string }
-  | { type: "item"; conversation: ConversationListDto };
+/** 一个分组区块：置顶，或某个日期档位 */
+interface ConversationSection {
+  key: string;
+  label: string;
+  conversations: ConversationListDto[];
+}
+
+/** 侧边栏按粗粒度日期分组时的档位，顺序即天数上限 */
+const DATE_BUCKETS = [
+  { maxDays: 0, key: "today", labelKey: "today" },
+  { maxDays: 1, key: "yesterday", labelKey: "yesterday" },
+  { maxDays: 7, key: "within_7_days", labelKey: "within_7_days" },
+  { maxDays: 30, key: "within_30_days", labelKey: "within_30_days" },
+] as const;
 
 function getDateLabel(date: dayjs.Dayjs, t: TFunction): string {
   const today = dayjs().startOf("day");
@@ -159,33 +175,60 @@ function getDateLabel(date: dayjs.Dayjs, t: TFunction): string {
   return formatter.format(native);
 }
 
+/** 分组标题：分组开关关闭时退回逐日分组，开启时按档位归并，30 天以上按年月 */
+function getSectionHeader(
+  date: dayjs.Dayjs,
+  groupingEnabled: boolean,
+  t: TFunction,
+): { key: string; label: string } {
+  if (!groupingEnabled) {
+    return { key: date.format("YYYY-MM-DD"), label: getDateLabel(date, t) };
+  }
+
+  const daysAgo = dayjs().startOf("day").diff(date, "day");
+  for (const bucket of DATE_BUCKETS) {
+    if (daysAgo <= bucket.maxDays) {
+      return { key: bucket.key, label: t(`conversation_sidebar.${bucket.labelKey}`) };
+    }
+  }
+  return {
+    key: date.format("YYYY-MM"),
+    label: t("conversation_sidebar.month_group", { year: date.year(), month: date.month() + 1 }),
+  };
+}
+
+// 直接产出分组区块，不再先铺成扁平的「标题 + 条目」再折叠一次。
+// 吸顶标题必须是某个区块的子元素、且区块本身高于标题，标题才有可粘附的行程；
+// 否则标题只会在自己那点高的包装盒里打转，看起来完全没吸顶。
 function groupConversations(
   conversations: ConversationListDto[],
   t: TFunction,
-): ConversationListItem[] {
-  const items: ConversationListItem[] = [];
+  groupingEnabled: boolean,
+): ConversationSection[] {
+  const sections: ConversationSection[] = [];
   const pinned = conversations.filter((c) => c.isPinned);
-  const unpinned = conversations.filter((c) => !c.isPinned);
 
   if (pinned.length > 0) {
-    items.push({ type: "pinned-header" });
-    for (const c of pinned) {
-      items.push({ type: "item", conversation: c });
-    }
+    sections.push({
+      key: "pinned",
+      label: t("conversation_sidebar.pinned"),
+      conversations: pinned,
+    });
   }
 
-  let lastDate: string | null = null;
-  for (const c of unpinned) {
-    const date = dayjs(c.updateAt).startOf("day");
-    const dateKey = date.format("YYYY-MM-DD");
-    if (dateKey !== lastDate) {
-      items.push({ type: "date-header", date: dateKey, label: getDateLabel(date, t) });
-      lastDate = dateKey;
+  let current: ConversationSection | null = null;
+  for (const c of conversations) {
+    if (c.isPinned) continue;
+
+    const header = getSectionHeader(dayjs(c.updateAt).startOf("day"), groupingEnabled, t);
+    if (!current || current.key !== header.key) {
+      current = { key: header.key, label: header.label, conversations: [] };
+      sections.push(current);
     }
-    items.push({ type: "item", conversation: c });
+    current.conversations.push(c);
   }
 
-  return items;
+  return sections;
 }
 
 export interface ConversationSidebarProps {
@@ -249,6 +292,13 @@ const ConversationListRow = React.memo(
     const { t } = useTranslation();
     const [menuOpen, setMenuOpen] = React.useState(false);
     const [pendingAction, setPendingAction] = React.useState<string | null>(null);
+    // 原来用 window.confirm / window.prompt，WebView 里是浏览器原生样式，和界面完全不搭
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false);
+    // 改标题是就地编辑：当前行直接变成输入框，不再另开弹窗
+    const [editingTitle, setEditingTitle] = React.useState(false);
+    const [titleDraft, setTitleDraft] = React.useState("");
+    // 输入框卸载时也会触发 blur，用 ref 保证 Enter / Esc 之后不会再提交一次
+    const editingTitleRef = React.useRef(false);
 
     const moveTargets = React.useMemo(
       () => assistants.filter((assistant) => assistant.id !== conversation.assistantId),
@@ -286,10 +336,61 @@ const ConversationListRow = React.memo(
       },
       [t],
     );
+
+    const cancelTitleEdit = React.useCallback(() => {
+      editingTitleRef.current = false;
+      setEditingTitle(false);
+    }, []);
+
+    // Enter 与 blur 都可能触发提交，editingTitleRef 保证只提交一次
+    const commitTitle = React.useCallback(async () => {
+      if (!editingTitleRef.current) return;
+      editingTitleRef.current = false;
+      setEditingTitle(false);
+      const nextTitle = titleDraft.trim();
+      if (!nextTitle || nextTitle === conversation.title || !onUpdateTitle) return;
+      await runAction(
+        "update-title",
+        async () => {
+          await onUpdateTitle(conversation.id, nextTitle);
+        },
+        // 标题就地改完立刻能看到，不再额外弹「已更新」
+        { error: t("conversation_sidebar.title_update_failed") },
+      );
+    }, [conversation.id, conversation.title, onUpdateTitle, runAction, t, titleDraft]);
+
+    if (editingTitle) {
+      return (
+        <SidebarMenuItem>
+          <input
+            autoFocus
+            className="h-10 w-full rounded-xl border border-primary bg-background px-2.5 text-sm outline-none"
+            onBlur={() => {
+              void commitTitle();
+            }}
+            onChange={(event) => setTitleDraft(event.target.value)}
+            onFocus={(event) => event.currentTarget.select()}
+            onKeyDown={(event) => {
+              // 中文输入法选词时按 Enter 只是上屏，不能当成提交
+              if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                event.preventDefault();
+                void commitTitle();
+              } else if (event.key === "Escape") {
+                event.preventDefault();
+                cancelTitleEdit();
+              }
+            }}
+            value={titleDraft}
+          />
+        </SidebarMenuItem>
+      );
+    }
+
     return (
       <SidebarMenuItem>
         <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
           <SidebarMenuButton
+            className="h-10 rounded-xl pl-2.5"
             isActive={isActive}
             onClick={() => onSelect(conversation.id)}
             onContextMenu={(event) => {
@@ -298,14 +399,13 @@ const ConversationListRow = React.memo(
               setMenuOpen(true);
             }}
           >
-            <span className="flex w-full items-center gap-2">
-              <span className="flex-1 truncate">
+            <span className="flex w-full min-w-0 items-center gap-2">
+              <span className="min-w-0 flex-1 truncate">
                 {conversation.title || t("conversation_sidebar.unnamed_conversation")}
               </span>
-              {conversation.isPinned && <Pin className="size-3 text-primary" aria-hidden />}
               {conversation.isGenerating && (
                 <span
-                  className="inline-block size-2 rounded-full bg-emerald-500"
+                  className="inline-block size-2 shrink-0 rounded-full bg-emerald-500"
                   aria-label={t("conversation_sidebar.generating")}
                   title={t("conversation_sidebar.generating")}
                 />
@@ -318,6 +418,7 @@ const ConversationListRow = React.memo(
               <DropdownMenuTrigger asChild>
                 <SidebarMenuAction
                   showOnHover
+                  className="top-2.5!"
                   aria-label={t("conversation_sidebar.conversation_actions")}
                   title={t("conversation_sidebar.conversation_actions")}
                   disabled={pendingAction !== null}
@@ -329,6 +430,8 @@ const ConversationListRow = React.memo(
                 </SidebarMenuAction>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="right" align="start" className="w-48">
+                {/* 菜单顺序对齐 DeepSeek：置顶 / 重命名 / 自动命名 / 移动 / 分组 / 删除，
+                    破坏性操作固定在末尾，离手最远 */}
                 {onPin && (
                   <DropdownMenuItem
                     disabled={pendingAction !== null}
@@ -339,10 +442,8 @@ const ConversationListRow = React.memo(
                         async () => {
                           await onPin(conversation.id);
                         },
+                        // 置顶会把这一行立刻挪到「置顶」分组，结果自明，不再弹提示
                         {
-                          success: conversation.isPinned
-                            ? t("conversation_sidebar.unpin_success")
-                            : t("conversation_sidebar.pin_success"),
                           error: conversation.isPinned
                             ? t("conversation_sidebar.unpin_failed")
                             : t("conversation_sidebar.pin_failed"),
@@ -363,6 +464,23 @@ const ConversationListRow = React.memo(
                   </DropdownMenuItem>
                 )}
 
+                {onUpdateTitle && (
+                  <DropdownMenuItem
+                    disabled={pendingAction !== null}
+                    onSelect={(event) => {
+                      event.preventDefault();
+                      if (pendingAction !== null) return;
+                      setMenuOpen(false);
+                      setTitleDraft(conversation.title);
+                      editingTitleRef.current = true;
+                      setEditingTitle(true);
+                    }}
+                  >
+                    <Pencil className="size-4" />
+                    <span>{t("conversation_sidebar.edit_title")}</span>
+                  </DropdownMenuItem>
+                )}
+
                 {onRegenerateTitle && (
                   <DropdownMenuItem
                     disabled={pendingAction !== null}
@@ -373,50 +491,13 @@ const ConversationListRow = React.memo(
                         async () => {
                           await onRegenerateTitle(conversation.id);
                         },
-                        {
-                          success: t("conversation_sidebar.regenerate_title_success"),
-                          error: t("conversation_sidebar.regenerate_title_failed"),
-                        },
+                        // 自动命名时什么都不弹，标题稍后自己变
+                        { error: t("conversation_sidebar.regenerate_title_failed") },
                       );
                     }}
                   >
                     <RefreshCw className="size-4" />
                     <span>{t("conversation_sidebar.regenerate_title")}</span>
-                  </DropdownMenuItem>
-                )}
-
-                {onUpdateTitle && (
-                  <DropdownMenuItem
-                    disabled={pendingAction !== null}
-                    onSelect={(event) => {
-                      event.preventDefault();
-                      const nextTitle = window
-                        .prompt(t("conversation_sidebar.edit_title_prompt"), conversation.title)
-                        ?.trim();
-                      if (nextTitle == null) {
-                        return;
-                      }
-                      if (nextTitle.length === 0) {
-                        toast.error(t("conversation_sidebar.title_empty"));
-                        return;
-                      }
-                      if (nextTitle === conversation.title) {
-                        return;
-                      }
-                      void runAction(
-                        "update-title",
-                        async () => {
-                          await onUpdateTitle(conversation.id, nextTitle);
-                        },
-                        {
-                          success: t("conversation_sidebar.title_updated"),
-                          error: t("conversation_sidebar.title_update_failed"),
-                        },
-                      );
-                    }}
-                  >
-                    <Pencil className="size-4" />
-                    <span>{t("conversation_sidebar.edit_title")}</span>
                   </DropdownMenuItem>
                 )}
 
@@ -520,37 +601,46 @@ const ConversationListRow = React.memo(
                 )}
 
                 {onDelete && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      variant="destructive"
-                      disabled={pendingAction !== null}
-                      onSelect={(event) => {
-                        event.preventDefault();
-                        if (!window.confirm(t("conversation_sidebar.delete_confirm"))) {
-                          return;
-                        }
-                        void runAction(
-                          "delete",
-                          async () => {
-                            await onDelete(conversation.id);
-                          },
-                          {
-                            success: t("conversation_sidebar.delete_success"),
-                            error: t("conversation_sidebar.delete_failed"),
-                          },
-                        );
-                      }}
-                    >
-                      <Trash2 className="size-4" />
-                      <span>{t("conversation_sidebar.delete_conversation")}</span>
-                    </DropdownMenuItem>
-                  </>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    disabled={pendingAction !== null}
+                    onSelect={(event) => {
+                      event.preventDefault();
+                      if (pendingAction !== null) return;
+                      setMenuOpen(false);
+                      setDeleteConfirmOpen(true);
+                    }}
+                  >
+                    <Trash2 className="size-4" />
+                    <span>{t("conversation_sidebar.delete_conversation")}</span>
+                  </DropdownMenuItem>
                 )}
               </DropdownMenuContent>
             </>
           )}
         </DropdownMenu>
+
+        {onDelete && (
+          <ConfirmDialog
+            cancelText={t("conversation_sidebar.cancel")}
+            confirmText={t("conversation_sidebar.delete_confirm_action")}
+            description={t("conversation_sidebar.delete_description")}
+            destructive
+            onConfirm={() =>
+              runAction(
+                "delete",
+                async () => {
+                  await onDelete(conversation.id);
+                },
+                // 删完这一行就没了，再弹一个「会话已删除」只会多一层噪音
+                { error: t("conversation_sidebar.delete_failed") },
+              )
+            }
+            onOpenChange={setDeleteConfirmOpen}
+            open={deleteConfirmOpen}
+            title={t("conversation_sidebar.delete_title")}
+          />
+        )}
       </SidebarMenuItem>
     );
   },
@@ -619,44 +709,45 @@ function FolderBar({
   onDelete,
 }: FolderBarProps) {
   const { t } = useTranslation();
+  const [createOpen, setCreateOpen] = React.useState(false);
+  const [renameTarget, setRenameTarget] = React.useState<FolderDto | null>(null);
+  const [deleteTarget, setDeleteTarget] = React.useState<FolderDto | null>(null);
 
-  const handleCreate = React.useCallback(() => {
-    if (!onCreate) return;
-    const name = window.prompt(t("conversation_sidebar.folder_name_prompt"))?.trim();
-    if (!name) return;
-    void onCreate(name).catch((folderError) => {
-      console.error("Create folder failed", folderError);
-      toast.error(t("conversation_sidebar.folder_create_failed"));
-    });
-  }, [onCreate, t]);
+  const handleCreate = React.useCallback(
+    async (name: string) => {
+      if (!onCreate) return;
+      try {
+        await onCreate(name);
+      } catch (folderError) {
+        console.error("Create folder failed", folderError);
+        toast.error(t("conversation_sidebar.folder_create_failed"));
+      }
+    },
+    [onCreate, t],
+  );
 
   const handleRename = React.useCallback(
-    (folder: FolderDto) => {
-      if (!onRename) return;
-      const name = window
-        .prompt(t("conversation_sidebar.folder_rename_prompt"), folder.name)
-        ?.trim();
-      if (!name || name === folder.name) return;
-      void onRename(folder.id, name).catch((folderError) => {
+    async (folder: FolderDto, name: string) => {
+      if (!onRename || name === folder.name) return;
+      try {
+        await onRename(folder.id, name);
+      } catch (folderError) {
         console.error("Rename folder failed", folderError);
         toast.error(t("conversation_sidebar.folder_rename_failed"));
-      });
+      }
     },
     [onRename, t],
   );
 
   const handleDelete = React.useCallback(
-    (folder: FolderDto) => {
+    async (folder: FolderDto) => {
       if (!onDelete) return;
-      if (
-        !window.confirm(t("conversation_sidebar.folder_delete_confirm", { folder: folder.name }))
-      ) {
-        return;
-      }
-      void onDelete(folder.id).catch((folderError) => {
+      try {
+        await onDelete(folder.id);
+      } catch (folderError) {
         console.error("Delete folder failed", folderError);
         toast.error(t("conversation_sidebar.folder_delete_failed"));
-      });
+      }
     },
     [onDelete, t],
   );
@@ -719,13 +810,13 @@ function FolderBar({
             </div>
             <DropdownMenuContent side="bottom" align="start" className="w-40">
               {onRename && (
-                <DropdownMenuItem onSelect={() => handleRename(folder)}>
+                <DropdownMenuItem onSelect={() => setRenameTarget(folder)}>
                   <Pencil className="size-4" />
                   <span>{t("conversation_sidebar.folder_rename")}</span>
                 </DropdownMenuItem>
               )}
               {onDelete && (
-                <DropdownMenuItem variant="destructive" onSelect={() => handleDelete(folder)}>
+                <DropdownMenuItem variant="destructive" onSelect={() => setDeleteTarget(folder)}>
                   <Trash2 className="size-4" />
                   <span>{t("conversation_sidebar.folder_delete")}</span>
                 </DropdownMenuItem>
@@ -738,7 +829,7 @@ function FolderBar({
       {onCreate && (
         <button
           type="button"
-          onClick={handleCreate}
+          onClick={() => setCreateOpen(true)}
           aria-label={t("conversation_sidebar.folder_create")}
           title={t("conversation_sidebar.folder_create")}
           className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground transition hover:bg-muted/80"
@@ -746,6 +837,48 @@ function FolderBar({
           <FolderPlus className="size-3.5" />
         </button>
       )}
+
+      <PromptDialog
+        cancelText={t("conversation_sidebar.cancel")}
+        confirmText={t("conversation_sidebar.save")}
+        onOpenChange={setCreateOpen}
+        onSubmit={handleCreate}
+        open={createOpen}
+        placeholder={t("conversation_sidebar.folder_name_prompt")}
+        title={t("conversation_sidebar.folder_create")}
+      />
+      <PromptDialog
+        cancelText={t("conversation_sidebar.cancel")}
+        confirmText={t("conversation_sidebar.save")}
+        defaultValue={renameTarget?.name ?? ""}
+        onOpenChange={(open) => {
+          if (!open) setRenameTarget(null);
+        }}
+        onSubmit={async (name) => {
+          if (renameTarget) await handleRename(renameTarget, name);
+        }}
+        open={renameTarget !== null}
+        placeholder={t("conversation_sidebar.folder_rename_prompt")}
+        title={t("conversation_sidebar.folder_rename")}
+      />
+      <ConfirmDialog
+        cancelText={t("conversation_sidebar.cancel")}
+        confirmText={t("conversation_sidebar.folder_delete")}
+        description={
+          deleteTarget
+            ? t("conversation_sidebar.folder_delete_confirm", { folder: deleteTarget.name })
+            : undefined
+        }
+        destructive
+        onConfirm={async () => {
+          if (deleteTarget) await handleDelete(deleteTarget);
+        }}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        open={deleteTarget !== null}
+        title={t("conversation_sidebar.folder_delete")}
+      />
     </div>
   );
 }
@@ -789,7 +922,9 @@ export const ConversationSidebar = React.memo(
     const [selectedTagIds, setSelectedTagIds] = React.useState<string[]>([]);
     const [switchingAssistantId, setSwitchingAssistantId] = React.useState<string | null>(null);
     const [switchError, setSwitchError] = React.useState<string | null>(null);
-    const [showBackToTop, setShowBackToTop] = React.useState(false);
+    const enableSidebarDateGrouping = useSettingsStore(
+      (state) => state.settings?.displaySetting?.enableSidebarDateGrouping ?? true,
+    );
 
     const currentTheme = theme;
     const currentThemeOption =
@@ -815,9 +950,9 @@ export const ConversationSidebar = React.memo(
       [assistants, currentAssistantId],
     );
 
-    const groupedItems = React.useMemo(
-      () => groupConversations(conversations, t),
-      [conversations, i18n.resolvedLanguage, t],
+    const sections = React.useMemo(
+      () => groupConversations(conversations, t, enableSidebarDateGrouping),
+      [conversations, enableSidebarDateGrouping, i18n.resolvedLanguage, t],
     );
 
     const filteredAssistants = React.useMemo(() => {
@@ -859,70 +994,36 @@ export const ConversationSidebar = React.memo(
       [currentAssistantId, onAssistantChange],
     );
 
-    const handleBackToTop = React.useCallback(() => {
-      const scrollContainer = document.getElementById("conversationScrollTarget");
-      if (!scrollContainer) return;
-      scrollContainer.scrollTo({ top: 0, behavior: "smooth" });
-    }, []);
-
     const handleWebLogout = React.useCallback(() => {
       clearWebAuthToken();
       toast.success("Web session cleared");
       window.location.reload();
     }, []);
 
-    React.useEffect(() => {
-      const scrollContainer = document.getElementById("conversationScrollTarget");
-      if (!scrollContainer) return;
-
-      const handleScroll = () => {
-        setShowBackToTop(scrollContainer.scrollTop > 240);
-      };
-
-      handleScroll();
-      scrollContainer.addEventListener("scroll", handleScroll, { passive: true });
-      return () => {
-        scrollContainer.removeEventListener("scroll", handleScroll);
-      };
-    }, [conversations.length]);
-
     return (
       <Sidebar collapsible="offcanvas" variant="sidebar">
-        <SidebarHeader>
-          <div className="flex items-center gap-3 rounded-lg px-2.5 py-2.5">
-            <UIAvatar
-              size="default"
-              name={userName}
-              avatar={userAvatar}
-              className="ring-1 ring-sidebar-border/70"
-            />
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-medium leading-none">{userName}</div>
-              <div className="mt-1 truncate text-xs text-muted-foreground">
-                {t("conversation_sidebar.welcome_back")}
-              </div>
-            </div>
+        {/* 和主内容区顶部同高（h-16），展开时左右两侧顶边才对得齐 */}
+        <SidebarHeader className="h-16 flex-row items-center justify-between px-3 py-2">
+          <Logo className="size-6 shrink-0 text-primary" />
+          <div className="flex items-center gap-1">
+            <ConversationSearchButton iconOnly onSelect={onSelect} />
+            <SidebarTrigger className="size-7 text-muted-foreground hover:text-foreground" />
           </div>
         </SidebarHeader>
-        <SidebarContent className="min-h-0">
-          <SidebarGroup>
-            <div className="space-y-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start"
-                onClick={onCreateConversation}
-              >
-                <Plus className="size-4" />
-                {t("conversation_sidebar.new_conversation")}
-              </Button>
-
-              <ConversationSearchButton onSelect={onSelect} />
-            </div>
+        <SidebarContent className="min-h-0 overflow-x-hidden">
+          <SidebarGroup className="px-3 pt-1">
+            <Button
+              data-sidebar-new-chat
+              variant="ghost"
+              className="w-full justify-center"
+              onClick={onCreateConversation}
+            >
+              <CirclePlus className="size-4" />
+              {t("conversation_sidebar.new_conversation")}
+            </Button>
           </SidebarGroup>
 
-          <SidebarGroup className="flex min-h-0 flex-1 flex-col">
-            <SidebarGroupLabel>{t("conversation_sidebar.conversations")}</SidebarGroupLabel>
+          <SidebarGroup className="flex min-h-0 flex-1 flex-col px-3 pt-0">
             {onSelectFolder && (
               <FolderBar
                 folders={folders}
@@ -934,6 +1035,10 @@ export const ConversationSidebar = React.memo(
               />
             )}
             <InfiniteScrollArea
+              // 往右多占 12px（外层 px-3 的右内边距），让滚动条正好落在右侧留白里，
+              // 条目的左右留白才相等；否则右边会比左边多出一条滚动条的宽度。
+              className="scrollbar-on-hover -mr-3"
+              autoHideScrollbar
               dataLength={conversations.length}
               next={loadMore}
               hasMore={hasMore}
@@ -959,61 +1064,44 @@ export const ConversationSidebar = React.memo(
                     </div>
                   </SidebarMenuItem>
                 )}
-                {groupedItems.map((listItem) => {
-                  if (listItem.type === "pinned-header") {
-                    return (
-                      <SidebarMenuItem key="pinned_header">
-                        <div className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-semibold text-primary">
-                          <Pin className="size-3" />
-                          {t("conversation_sidebar.pinned")}
-                        </div>
-                      </SidebarMenuItem>
-                    );
-                  }
-                  if (listItem.type === "date-header") {
-                    return (
-                      <SidebarMenuItem key={`date_${listItem.date}`}>
-                        <div className="px-2 py-1.5 text-xs font-semibold text-primary">
-                          {listItem.label}
-                        </div>
-                      </SidebarMenuItem>
-                    );
-                  }
-                  const item = listItem.conversation;
-                  return (
-                    <ConversationListRow
-                      key={item.id}
-                      conversation={item}
-                      isActive={item.id === activeId}
-                      assistants={assistants}
-                      folders={folders}
-                      onSelect={onSelect}
-                      onPin={onPin}
-                      onRegenerateTitle={onRegenerateTitle}
-                      onMoveToAssistant={onMoveToAssistant}
-                      onMoveToFolder={onMoveToFolder}
-                      onUpdateTitle={onUpdateTitle}
-                      onDelete={onDelete}
-                    />
-                  );
-                })}
+                {sections.map((section, sectionIndex) => (
+                  <li
+                    key={section.key}
+                    // 组间距 16px + 顶部 4px（给吸顶标题留白），组内行距 0
+                    className={cn("flex min-w-0 flex-col", sectionIndex > 0 && "mt-4 pt-1")}
+                  >
+                    <div
+                      className={cn(
+                        // 标题向左吃掉 group 的 px-3 让吸顶底色通栏，
+                        // 左侧补回 12 + 条目自身的 pl-2.5 = 22px，文字才和会话标题同一条竖线
+                        "sticky top-0 z-10 -mx-3 bg-sidebar py-0.5 pr-5 pl-[22px] text-xs font-medium leading-[18px] text-muted-foreground",
+                        section.key === "pinned" && "z-20",
+                      )}
+                    >
+                      {section.label}
+                    </div>
+                    <ul className="flex w-full min-w-0 flex-col">
+                      {section.conversations.map((item) => (
+                        <ConversationListRow
+                          key={item.id}
+                          conversation={item}
+                          isActive={item.id === activeId}
+                          assistants={assistants}
+                          folders={folders}
+                          onSelect={onSelect}
+                          onPin={onPin}
+                          onRegenerateTitle={onRegenerateTitle}
+                          onMoveToAssistant={onMoveToAssistant}
+                          onMoveToFolder={onMoveToFolder}
+                          onUpdateTitle={onUpdateTitle}
+                          onDelete={onDelete}
+                        />
+                      ))}
+                    </ul>
+                  </li>
+                ))}
               </SidebarMenu>
             </InfiniteScrollArea>
-            {showBackToTop && (
-              <div className="pointer-events-none absolute right-0 bottom-4 left-0 flex justify-center">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="icon-sm"
-                  className="pointer-events-auto shadow-sm"
-                  aria-label={t("conversation_sidebar.back_to_top")}
-                  title={t("conversation_sidebar.back_to_top")}
-                  onClick={handleBackToTop}
-                >
-                  <ArrowUp className="size-4" />
-                </Button>
-              </div>
-            )}
           </SidebarGroup>
         </SidebarContent>
         <SidebarFooter>
@@ -1127,12 +1215,15 @@ export const ConversationSidebar = React.memo(
             onSave={handleCustomThemeSave}
           />
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 px-1 py-1">
+            <UIAvatar name={userName} avatar={userAvatar} className="size-8 shrink-0" />
+            <div className="min-w-0 flex-1 truncate text-sm font-medium">{userName}</div>
+
             {webAuthEnabled && (
               <Button
-                variant="outline"
-                size="icon-sm"
-                className="text-foreground"
+                variant="ghost"
+                size="icon-xs"
+                className="text-muted-foreground hover:text-foreground"
                 type="button"
                 onClick={handleWebLogout}
                 aria-label="Clear web session"
@@ -1225,15 +1316,6 @@ export const ConversationSidebar = React.memo(
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-
-            <a
-              href="https://rikka-ai.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ml-auto text-xs font-normal text-foreground/80 hover:text-foreground transition-colors"
-            >
-              RikkaHub
-            </a>
           </div>
         </SidebarFooter>
       </Sidebar>

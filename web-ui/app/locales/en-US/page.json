@@ -28,11 +28,18 @@
       "no_message_description": "This conversation does not have any messages yet"
     },
     "welcome_prompt": "How can I help you?",
+    "welcome_prompt_2": "Hi! What would you like to talk about?",
+    "welcome_prompt_3": "Welcome back — where should we start?",
+    "welcome_prompt_4": "What's on your mind today?",
     "user": {
       "default_name": "User"
     },
     "header": {
-      "select_conversation": "Select a conversation"
+      "select_conversation": "Select a conversation",
+      "scroll_to_bottom": "Back to bottom",
+      "share": "Share",
+      "export_markdown": "Export",
+      "export_markdown_with_reasoning": "Export (with reasoning)"
     }
   }
 }

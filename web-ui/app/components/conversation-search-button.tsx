@@ -1,22 +1,22 @@
 import * as React from "react";
 
 import dayjs from "dayjs";
-import { Circle, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "~/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogTrigger,
-} from "~/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "~/components/ui/dialog";
 import { ScrollArea } from "~/components/ui/scroll-area";
+import { cn } from "~/lib/utils";
 import api from "~/services/api";
 import type { MessageSearchResultDto } from "~/types";
 
 export interface ConversationSearchButtonProps {
   onSelect: (id: string) => void;
+  /** 侧边栏顶部只放一个放大镜图标，和 DeepSeek 一致 */
+  iconOnly?: boolean;
+  /** iconOnly 时的按钮样式，供收起态的胶囊统一控制尺寸与配色 */
+  className?: string;
 }
 
 function SnippetText({ snippet }: { snippet: string }) {
@@ -63,7 +63,11 @@ function formatRelativeTime(updateAt: number, t: (key: string) => string): strin
   }).format(native);
 }
 
-export function ConversationSearchButton({ onSelect }: ConversationSearchButtonProps) {
+export function ConversationSearchButton({
+  onSelect,
+  iconOnly = false,
+  className,
+}: ConversationSearchButtonProps) {
   const { t } = useTranslation();
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
@@ -124,10 +128,22 @@ export function ConversationSearchButton({ onSelect }: ConversationSearchButtonP
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" className="w-full justify-start" type="button">
-          <Search className="size-4" />
-          {t("conversation_search.search_conversations")}
-        </Button>
+        {iconOnly ? (
+          <Button
+            aria-label={t("conversation_search.search_conversations")}
+            className={cn("ds-icon-btn", className)}
+            title={t("conversation_search.search_conversations")}
+            type="button"
+            variant="ghost"
+          >
+            <Search className="size-[18px]" />
+          </Button>
+        ) : (
+          <Button variant="ghost" size="sm" className="w-full justify-start" type="button">
+            <Search className="size-4" />
+            {t("conversation_search.search_conversations")}
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-h-[80svh] max-w-xl overflow-hidden p-0">
         <DialogTitle className="sr-only">
