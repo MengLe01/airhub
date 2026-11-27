@@ -149,7 +149,7 @@ export function McpPickerButton({
           size="sm"
           disabled={!canUse || updateMcpMutation.isPending}
           className={cn(
-            "h-8 rounded-full px-2 text-muted-foreground hover:text-foreground",
+            "ds-icon-btn",
             selectedEnabledCount > 0 && "text-primary hover:bg-primary/10",
             className,
           )}

@@ -1,15 +1,7 @@
 import * as React from "react";
 
 import { useMutation } from "@tanstack/react-query";
-import {
-  Brain,
-  BrainCircuit,
-  ChevronDown,
-  Lightbulb,
-  LightbulbOff,
-  LoaderCircle,
-  Sparkles,
-} from "lucide-react";
+import { Brain, BrainCircuit, Lightbulb, LightbulbOff, LoaderCircle, Sparkles } from "lucide-react";
 import { Slider as SliderPrimitive } from "radix-ui";
 import { useTranslation } from "react-i18next";
 
@@ -231,24 +223,21 @@ export function ReasoningPickerButton({
           variant="ghost"
           size="sm"
           disabled={!canUse || loading}
-          className={cn(
-            "h-8 rounded-full px-2.5 text-sm font-normal text-muted-foreground hover:text-foreground",
-            className,
-          )}
+          className={cn("ds-pill", className)}
+          data-active={localLevel !== "off"}
         >
           <ReasoningIcon level={localLevel} className="size-3.5" />
           <span className="hidden sm:block">{localPreset.label}</span>
-          <span className="hidden sm:block">
-            {loading ? (
-              <LoaderCircle className="size-3.5 animate-spin" />
-            ) : (
-              <ChevronDown className="size-3.5" />
-            )}
-          </span>
+          {loading ? <LoaderCircle className="size-3.5 animate-spin" /> : null}
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent side="top" sideOffset={8} align="end" className="w-[min(92vw,20rem)] space-y-3 px-4 py-4">
+      <PopoverContent
+        side="top"
+        sideOffset={8}
+        align="end"
+        className="w-[min(92vw,20rem)] space-y-3 px-4 py-4"
+      >
         <PickerErrorAlert error={error} />
 
         {/* Faster / Smarter labels */}

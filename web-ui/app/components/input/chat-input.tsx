@@ -1,19 +1,7 @@
 import * as React from "react";
 
 import { fileTypeFromBuffer } from "file-type";
-import {
-  ArrowUp,
-  File,
-  FileDown,
-  Image,
-  LoaderCircle,
-  Mic,
-  Plus,
-  Square,
-  Video,
-  X,
-  Zap,
-} from "lucide-react";
+import { ArrowUp, File, Image, LoaderCircle, Mic, Plus, Square, Video, X, Zap } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
@@ -54,7 +42,8 @@ export interface ChatInputProps {
   onStop?: () => Promise<void> | void;
   onCancelEdit?: () => void;
   onSuggestionClick?: (suggestion: string) => void;
-  onExportConversation?: (includeReasoning: boolean) => void;
+  /** 新会话首页：欢迎块与输入卡之间没有额外留白，间距只由欢迎块自己的 margin 决定 */
+  welcome?: boolean;
   className?: string;
 }
 
@@ -96,9 +85,7 @@ async function detectUploadFile(
   return { allowed: false, mimeType: detected.mime };
 }
 
-function toMessagePart(
-  file: UploadFilesResponseDto["files"][number],
-): UIMessagePart {
+function toMessagePart(file: UploadFilesResponseDto["files"][number]): UIMessagePart {
   if (file.mime.startsWith("image/")) {
     return {
       type: "image",
@@ -190,7 +177,7 @@ function ChatInputInner({
   onStop,
   onCancelEdit,
   onSuggestionClick,
-  onExportConversation,
+  welcome = false,
   className,
 }: ChatInputProps) {
   const { t } = useTranslation("input");
@@ -231,14 +218,30 @@ function ChatInputInner({
   const [dragActive, setDragActive] = React.useState(false);
   const dragDepthRef = React.useRef(0);
 
+  // 空态一行，随内容逐行长高，到 200px 之后内部滚动。
+  // textarea 的 rows 只是最小值，真实高度必须按 scrollHeight 撑。
+  React.useLayoutEffect(() => {
+    const element = textareaRef.current;
+    if (!element) return;
+
+    const resize = () => {
+      element.style.height = "auto";
+      element.style.height = `${Math.min(element.scrollHeight, 200)}px`;
+    };
+
+    resize();
+    // 首次挂载时输入卡还在绝对定位布局里，宽度没定下来，scrollHeight 会按窄宽度
+    // 算出一堆行（空态直接算成 184px）。下一帧宽度稳定后再算一次。
+    const frame = requestAnimationFrame(resize);
+    return () => cancelAnimationFrame(frame);
+  }, [value]);
+
   const isEmpty = value.trim().length === 0 && attachments.length === 0;
 
   const canStop = ready && Boolean(onStop) && isGenerating && !disabled;
   const canSend = ready && !isGenerating && !disabled && !isEmpty;
-  const canUpload =
-    ready && !disabled && !isGenerating && !uploading && !submitting;
-  const canSwitchModel =
-    ready && !disabled && !isGenerating && !uploading && !submitting;
+  const canUpload = ready && !disabled && !isGenerating && !uploading && !submitting;
+  const canSwitchModel = ready && !disabled && !isGenerating && !uploading && !submitting;
   const canUseQuickMessage = ready && !disabled && !uploading && !submitting;
   const actionDisabled = submitting || uploading || (!canStop && !canSend);
 
@@ -264,9 +267,7 @@ function ChatInputInner({
       const skippedFiles = results.filter((r) => !r.allowed);
 
       if (skippedFiles.length > 0) {
-        toast.warning(
-          t("chat.unsupported_file_skipped", { count: skippedFiles.length }),
-        );
+        toast.warning(t("chat.unsupported_file_skipped", { count: skippedFiles.length }));
       }
 
       if (uploadableFiles.length === 0) {
@@ -286,17 +287,12 @@ function ChatInputInner({
       setUploading(true);
       setError(null);
       try {
-        const response = await api.postMultipart<UploadFilesResponseDto>(
-          "files/upload",
-          formData,
-        );
+        const response = await api.postMultipart<UploadFilesResponseDto>("files/upload", formData);
         const parts = response.files.map(toMessagePart);
         onAddParts(parts);
       } catch (uploadError) {
         const message =
-          uploadError instanceof Error
-            ? uploadError.message
-            : t("chat.upload_failed");
+          uploadError instanceof Error ? uploadError.message : t("chat.upload_failed");
         setError(message);
       } finally {
         setUploading(false);
@@ -323,10 +319,7 @@ function ChatInputInner({
         await onSend();
       }
     } catch (submitError) {
-      const message =
-        submitError instanceof Error
-          ? submitError.message
-          : t("chat.send_failed");
+      const message = submitError instanceof Error ? submitError.message : t("chat.send_failed");
       setError(message);
     } finally {
       setSubmitting(false);
@@ -457,17 +450,14 @@ function ChatInputInner({
     [canUpload, dragActive],
   );
 
-  const handleDragLeave = React.useCallback(
-    (event: React.DragEvent<HTMLDivElement>) => {
-      event.preventDefault();
-      event.stopPropagation();
-      dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
-      if (dragDepthRef.current === 0) {
-        setDragActive(false);
-      }
-    },
-    [],
-  );
+  const handleDragLeave = React.useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) {
+      setDragActive(false);
+    }
+  }, []);
 
   const handleDrop = React.useCallback(
     async (event: React.DragEvent<HTMLDivElement>) => {
@@ -482,12 +472,8 @@ function ChatInputInner({
     [canUpload, uploadFiles],
   );
 
-  const sendHint = sendOnEnter
-    ? t("chat.send_hint_enter")
-    : t("chat.send_hint_newline");
-  const placeholder = ready
-    ? t("chat.placeholder_ready")
-    : t("chat.placeholder_not_ready");
+  const sendHint = sendOnEnter ? t("chat.send_hint_enter") : t("chat.send_hint_newline");
+  const placeholder = ready ? t("chat.placeholder_ready") : t("chat.placeholder_not_ready");
 
   return (
     <div
@@ -496,12 +482,12 @@ function ChatInputInner({
         className,
       )}
     >
-      <div className="mx-auto w-full max-w-3xl px-4 py-4">
+      <div className={cn("ds-chat-column px-4 md:px-11", welcome ? "py-0" : "py-4")}>
         <div
+          data-chat-input-card
           className={cn(
-            "relative flex flex-col gap-2 rounded-3xl border border-border/60 bg-muted/50 p-2.5 transition-colors focus-within:border-border",
-            dragActive &&
-              "border-primary/40 bg-primary/5 ring-2 ring-primary/30",
+            "relative flex flex-col gap-0 rounded-3xl border border-border/60 bg-muted/50 p-3 transition-colors focus-within:border-border",
+            dragActive && "border-primary/40 bg-primary/5 ring-2 ring-primary/30",
           )}
           onDragEnter={handleDragEnter}
           onDragOver={handleDragOver}
@@ -516,7 +502,7 @@ function ChatInputInner({
             </div>
           ) : null}
           {isEditing ? (
-            <div className="flex items-center justify-between rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
+            <div className="mb-2 flex items-center justify-between rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
               <span className="text-primary">{t("chat.editing_tip")}</span>
               <Button
                 type="button"
@@ -532,7 +518,7 @@ function ChatInputInner({
           ) : null}
 
           {suggestions.length > 0 ? (
-            <div className="flex gap-2 overflow-x-auto rounded-lg px-1 py-1">
+            <div className="flex gap-2 overflow-x-auto rounded-lg px-1 pt-1 pb-2">
               {suggestions.map((suggestion, index) => (
                 <button
                   key={`${suggestion}-${index}`}
@@ -552,7 +538,7 @@ function ChatInputInner({
           ) : null}
 
           {attachments.length > 0 ? (
-            <div className="flex flex-wrap gap-2 px-2 pt-1">
+            <div className="flex flex-wrap gap-2 px-1 pt-1 pb-2">
               {attachments.map((part, index) => {
                 const key = `${part.type}-${index}`;
                 return (
@@ -573,18 +559,12 @@ function ChatInputInner({
                     <button
                       className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                       onClick={async () => {
-                        if (!ready || disabled || isGenerating || submitting)
-                          return;
+                        if (!ready || disabled || isGenerating || submitting) return;
 
                         const fileId = getPartFileId(part);
-                        if (
-                          fileId != null &&
-                          (shouldDeleteFileOnRemove?.(part) ?? true)
-                        ) {
+                        if (fileId != null && (shouldDeleteFileOnRemove?.(part) ?? true)) {
                           try {
-                            await api.delete<{ status: string }>(
-                              `files/${fileId}`,
-                            );
+                            await api.delete<{ status: string }>(`files/${fileId}`);
                           } catch (deleteError) {
                             const message =
                               deleteError instanceof Error
@@ -613,19 +593,27 @@ function ChatInputInner({
             onChange={handleTextChange}
             onKeyDown={handleKeyDown}
             onPaste={(event) => {
-                void handlePaste(event);
-              }}
+              void handlePaste(event);
+            }}
             placeholder={placeholder}
             disabled={!ready || disabled}
-            className="min-h-[64px] max-h-[200px] resize-none border-0 bg-transparent dark:bg-transparent p-2 text-sm shadow-none focus-visible:ring-0"
-            rows={2}
+            className="min-h-12 max-h-[200px] resize-none border-0 bg-transparent p-0 pl-1 pr-1 text-sm leading-6 shadow-none focus-visible:ring-0 dark:bg-transparent"
+            rows={1}
           />
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex min-w-0 flex-wrap items-center gap-0.5">
-              <DropdownMenu
-                open={uploadMenuOpen}
-                onOpenChange={setUploadMenuOpen}
-              >
+          {/* 和 DeepSeek 一致：模型 / 深度思考这类「设置」在左，
+              附件类图标靠右挨着发送键 */}
+          <div className="mt-1 flex items-center justify-between gap-2 pt-3">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <ModelList
+                disabled={!canSwitchModel}
+                className="max-w-[120px] sm:max-w-56"
+                conversation={conversation}
+              />
+              <ReasoningPickerButton disabled={!canSwitchModel} conversation={conversation} />
+            </div>
+            {/* ml-auto 把「图标 + 发送」这一簇顶到右边 */}
+            <div className="ml-auto flex shrink-0 items-center justify-end gap-1">
+              <DropdownMenu open={uploadMenuOpen} onOpenChange={setUploadMenuOpen}>
                 <input
                   ref={fileInputRef}
                   className="hidden"
@@ -642,25 +630,13 @@ function ChatInputInner({
                   type="file"
                 />
                 <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    disabled={!canUpload}
-                    className="size-8 rounded-full text-muted-foreground hover:text-foreground"
-                  >
+                  <Button variant="ghost" size="icon" disabled={!canUpload} className="ds-icon-btn">
                     <Plus
-                      className={cn(
-                        "size-4 transition-transform",
-                        uploadMenuOpen && "rotate-45",
-                      )}
+                      className={cn("size-4 transition-transform", uploadMenuOpen && "rotate-45")}
                     />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  className="min-w-36"
-                  side="top"
-                  align="start"
-                >
+                <DropdownMenuContent className="min-w-36" side="top" align="start">
                   <DropdownMenuItem
                     onClick={() => {
                       imageInputRef.current?.click();
@@ -677,47 +653,16 @@ function ChatInputInner({
                     <File className="size-4" />
                     {t("chat.upload_document")}
                   </DropdownMenuItem>
-                  {onExportConversation && (
-                    <DropdownMenuItem
-                      onClick={() => {
-                        onExportConversation(false);
-                      }}
-                    >
-                      <FileDown className="size-4" />
-                      {t("chat.export_conversation")}
-                    </DropdownMenuItem>
-                  )}
-                  {onExportConversation && (
-                    <DropdownMenuItem
-                      onClick={() => {
-                        onExportConversation(true);
-                      }}
-                    >
-                      <FileDown className="size-4" />
-                      {t("chat.export_conversation_with_reasoning")}
-                    </DropdownMenuItem>
-                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
               <SearchPickerButton disabled={!canSwitchModel} conversation={conversation} />
               <McpPickerButton disabled={!canSwitchModel} conversation={conversation} />
-              <ExtensionPickerButton
-                conversation={conversation}
-                disabled={!canSwitchModel}
-              />
+              <ExtensionPickerButton conversation={conversation} disabled={!canSwitchModel} />
               <QuickMessageButton
                 quickMessages={quickMessages}
                 disabled={!canUseQuickMessage}
                 onSelect={handleQuickMessageSelect}
               />
-            </div>
-            <div className="flex min-w-0 shrink-0 items-center gap-0.5 sm:gap-1">
-              <ModelList
-                disabled={!canSwitchModel}
-                className="max-w-[120px] sm:max-w-56"
-                conversation={conversation}
-              />
-              <ReasoningPickerButton disabled={!canSwitchModel} conversation={conversation} />
               <Button
                 aria-label={canStop ? "停止生成" : "发送消息"}
                 title={sendHint}
@@ -727,10 +672,10 @@ function ChatInputInner({
                 disabled={actionDisabled}
                 size="icon"
                 className={cn(
-                  "size-9 shrink-0 rounded-full",
+                  "ml-1.5 size-[34px] shrink-0 rounded-full",
                   isGenerating && !submitting
-                    ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    : "bg-primary text-primary-foreground hover:bg-primary/90",
+                    ? "bg-destructive text-destructive-foreground hover:bg-destructive-hover"
+                    : "bg-primary text-primary-foreground hover:bg-primary-hover",
                 )}
               >
                 {submitting || uploading ? (
@@ -744,12 +689,8 @@ function ChatInputInner({
             </div>
           </div>
         </div>
-        <p className="sr-only">
-          {sendHint}
-        </p>
-        {error ? (
-          <p className="mt-1 text-center text-xs text-destructive">{error}</p>
-        ) : null}
+        <p className="sr-only">{sendHint}</p>
+        {error ? <p className="mt-1 text-center text-xs text-destructive">{error}</p> : null}
       </div>
     </div>
   );
@@ -786,12 +727,16 @@ function QuickMessageButton({
           variant="ghost"
           size="icon"
           disabled={disabled}
-          className="size-8 rounded-full text-muted-foreground hover:text-foreground"
+          className="ds-icon-btn"
         >
           <Zap className="size-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-[min(92vw,20rem)] max-h-64 overflow-y-auto" side="top" align="start">
+      <DropdownMenuContent
+        className="w-[min(92vw,20rem)] max-h-64 overflow-y-auto"
+        side="top"
+        align="start"
+      >
         {quickMessages.map((quickMessage, index) => {
           const key = `${quickMessage.title}-${index}`;
           return (
@@ -803,9 +748,7 @@ function QuickMessageButton({
               }}
             >
               <div className="min-w-0">
-                <div className="truncate text-sm font-medium">
-                  {quickMessage.title}
-                </div>
+                <div className="truncate text-sm font-medium">{quickMessage.title}</div>
                 <div className="text-muted-foreground mt-0.5 line-clamp-2 text-xs">
                   {quickMessage.content}
                 </div>

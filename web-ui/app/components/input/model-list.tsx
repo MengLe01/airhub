@@ -1,6 +1,6 @@
 import * as React from "react";
 
-import { Check, ChevronDown, Heart, LoaderCircle, Search } from "lucide-react";
+import { Check, Heart, LoaderCircle, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { useCurrentAssistant } from "~/hooks/use-current-assistant";
@@ -34,6 +34,14 @@ interface ModelSection {
 }
 
 const FAVORITE_SECTION_ID = "__favorites__";
+
+/**
+ * 模型选择器里能出现的模型：聊天模型，且没在 App 里被隐藏。
+ * 隐藏只影响选择器，模型本身仍然可用（例如会话里已经选过它）。
+ */
+function isSelectableModel(model: ProviderModel | undefined): model is ProviderModel {
+  return model?.type === "CHAT" && model.isHidden !== true;
+}
 
 function normalizeKeyword(value: string) {
   return value.trim().toLowerCase();
@@ -138,17 +146,6 @@ export function ModelList({
   const favoriteModelIds = settings?.favoriteModels ?? [];
   const favoriteModelIdSet = React.useMemo(() => new Set(favoriteModelIds), [favoriteModelIds]);
 
-  const allModels = React.useMemo(() => {
-    if (!settings) {
-      return [];
-    }
-
-    return settings.providers
-      .filter((provider) => provider.enabled)
-      .flatMap((provider) => provider.models)
-      .filter((model) => model.type === "CHAT");
-  }, [settings]);
-
   const sections = React.useMemo<ModelSection[]>(() => {
     if (!settings) {
       return [];
@@ -160,7 +157,7 @@ export function ModelList({
       .filter((provider) => provider.enabled)
       .map((provider) => {
         const models = provider.models.filter((model) => {
-          if (model.type !== "CHAT") {
+          if (!isSelectableModel(model)) {
             return false;
           }
 
@@ -199,9 +196,13 @@ export function ModelList({
   const isFavoriteSectionSelected = selectedProviderId === FAVORITE_SECTION_ID;
   const displayedModels = isFavoriteSectionSelected ? favoriteModels : (selectedSection?.models ?? []);
 
+  // 当前模型可能已被隐藏，标签仍要显示它的名字，所以这里查全部聊天模型
   const currentModel = React.useMemo(
-    () => allModels.find((model) => model.id === currentModelId) ?? null,
-    [allModels, currentModelId],
+    () =>
+      settings?.providers
+        .flatMap((provider) => provider.models)
+        .find((model) => model.id === currentModelId && model.type === "CHAT") ?? null,
+    [currentModelId, settings],
   );
 
   const currentModelLabel = currentModel
@@ -334,10 +335,7 @@ export function ModelList({
           type="button"
           variant="ghost"
           size="sm"
-          className={cn(
-            "h-8 min-w-0 justify-start gap-1.5 rounded-full px-2 font-normal text-foreground",
-            className,
-          )}
+          className={cn("ds-pill min-w-0 justify-start", className)}
           disabled={disabled || !currentAssistant}
         >
           <AIIcon
@@ -346,10 +344,7 @@ export function ModelList({
             className="bg-transparent"
             imageClassName="h-full w-full"
           />
-          <span className="min-w-0 flex-1 truncate text-left">
-            {currentModelLabel}
-          </span>
-          <ChevronDown className="size-3.5 shrink-0" />
+          <span className="min-w-0 flex-1 truncate text-left">{currentModelLabel}</span>
         </Button>
       </PopoverTrigger>
 

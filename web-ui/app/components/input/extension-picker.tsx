@@ -334,7 +334,7 @@ export function ExtensionPickerButton({
           size="sm"
           disabled={!canUse || isUpdating}
           className={cn(
-            "h-8 rounded-full px-2 text-muted-foreground hover:text-foreground",
+            "ds-icon-btn",
             selectedCount > 0 && "text-primary hover:bg-primary/10",
             className,
           )}
