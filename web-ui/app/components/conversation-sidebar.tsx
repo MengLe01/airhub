@@ -366,7 +366,9 @@ const ConversationListRow = React.memo(
         <SidebarMenuItem>
           <input
             autoFocus
-            className="h-10 w-full rounded-xl border border-primary bg-background px-2.5 text-sm outline-none"
+            // pl 用 9 而不是 10：输入框有 1px 边框，加起来正好等于标题那侧的 10px，
+            // 否则切换的瞬间文字会整体右移 1px
+            className="h-10 w-full rounded-xl border border-primary bg-background pr-2.5 pl-[9px] text-sm outline-none"
             onBlur={() => {
               void commitTitle();
             }}
