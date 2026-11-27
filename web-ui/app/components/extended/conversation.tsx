@@ -13,8 +13,11 @@ export type ConversationProps = ComponentProps<typeof StickToBottom>;
 export const Conversation = ({ className, ...props }: ConversationProps) => (
   <StickToBottom
     className={cn("relative flex-1 overflow-y-hidden", className)}
+    // 首次挂载与内容变化都直接落到底部，不做平滑滚动。
+    // 进入已有对话时消息是异步到达的，内容会从空一下子变成整屏，
+    // resize="smooth" 会把这次跳变当成一次滚动动画，进来先看到一段下滑。
     initial="instant"
-    resize="smooth"
+    resize="instant"
     role="log"
     {...props}
   />
