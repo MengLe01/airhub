@@ -73,11 +73,11 @@ export const ConversationScrollButton = ({
 
   return (
     !isAtBottom && (
+      // 贴在输入卡上方，右边缘与输入卡对齐（不是水平居中）。
+      // 桌面端输入框绝对定位盖在聊天区底部，要按 --composer-height 往上抬，
+      // 否则按钮会被输入卡压住；移动端输入框在文档流里，仍然是 bottom-4。
       <Button
-        className={cn(
-          "absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full dark:bg-background dark:hover:bg-muted",
-          className,
-        )}
+        className={cn("ds-scroll-bottom-button", className)}
         onClick={handleScrollToBottom}
         size="icon"
         type="button"

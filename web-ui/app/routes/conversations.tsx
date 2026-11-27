@@ -15,17 +15,22 @@ import {
 } from "~/components/extended/conversation";
 import { ChatInput } from "~/components/input/chat-input";
 import { ChatMessage } from "~/components/message/chat-message";
+import { ConversationSearchButton } from "~/components/conversation-search-button";
 import { Button } from "~/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
 import { Drawer, DrawerContent } from "~/components/ui/drawer";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "~/components/ui/resizable";
 import { TypingIndicator } from "~/components/ui/typing-indicator";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "~/components/ui/sidebar";
+import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from "~/components/ui/sidebar";
 import { useIsMobile } from "~/hooks/use-mobile";
 import { toConversationSummaryUpdate, useConversationList } from "~/hooks/use-conversation-list";
 import { useCurrentAssistant } from "~/hooks/use-current-assistant";
 import { useFolders } from "~/hooks/use-folders";
-import { useCurrentModel } from "~/hooks/use-current-model";
-import { getAssistantDisplayName, getModelDisplayName } from "~/lib/display";
 import { convertConversationToMarkdown, downloadMarkdown } from "~/lib/export-markdown";
 import { cn } from "~/lib/utils";
 import api, { sse } from "~/services/api";
@@ -48,7 +53,7 @@ import {
   type UIMessagePart,
   isNoticeOnly,
 } from "~/types";
-import { MessageSquare } from "lucide-react";
+import { CirclePlus, FileDown, MessageSquare, Share } from "lucide-react";
 import Logo from "~/components/logo";
 import type { PanelImperativeHandle } from "react-resizable-panels";
 import { useTranslation } from "react-i18next";
@@ -584,6 +589,17 @@ const ConversationTimeline = React.memo(
     const { t } = useTranslation("page");
     const canQuickJump =
       Boolean(activeId) && !detailLoading && !detailError && selectedNodeMessages.length > 1;
+    // 每次渲染都新建数组会让 quick jump 里的监听与缓存全部作废，这里固定引用
+    const quickJumpItems = React.useMemo(() => {
+      if (!canQuickJump) return [];
+      return selectedNodeMessages
+        .filter(({ message }) => !isNoticeOnly(message))
+        .map(({ message }) => ({
+          id: message.id,
+          role: message.role,
+          preview: getQuickJumpPreview(message, t),
+        }));
+    }, [canQuickJump, selectedNodeMessages, t]);
     const assistant = React.useMemo(() => {
       if (!settings || !conversationAssistantId) return null;
       return settings.assistants.find((item) => item.id === conversationAssistantId) ?? null;
@@ -606,7 +622,7 @@ const ConversationTimeline = React.memo(
     return (
       <Conversation className="flex-1 min-h-0">
         <ConversationContent
-          className={cn("mx-auto w-full max-w-3xl gap-4 px-4 py-6", contentClassName)}
+          className={cn("ds-chat-column gap-4 px-4 py-6 md:px-11", contentClassName)}
         >
           {!activeId && !isHomeRoute && (
             <ConversationEmptyState
@@ -670,19 +686,12 @@ const ConversationTimeline = React.memo(
           )}
         </ConversationContent>
 
-        {canQuickJump ? (
-          <ConversationQuickJump
-            items={selectedNodeMessages
-              .filter(({ message }) => !isNoticeOnly(message))
-              .map(({ message }) => ({
-                id: message.id,
-                role: message.role,
-                preview: getQuickJumpPreview(message, t),
-              }))}
-          />
-        ) : null}
+        {canQuickJump ? <ConversationQuickJump items={quickJumpItems} /> : null}
 
-        <ConversationScrollButton />
+        <ConversationScrollButton
+          aria-label={t("conversations.header.scroll_to_bottom")}
+          title={t("conversations.header.scroll_to_bottom")}
+        />
       </Conversation>
     );
   },
@@ -696,6 +705,43 @@ export function meta() {
       content: i18n.t("page:conversations.meta.description"),
     },
   ];
+}
+
+/** 桌面端侧边栏展开时收起按钮在侧边栏里，收起后才在主区左上角出现；
+    移动端侧边栏是覆盖式抽屉，state 恒为桌面端的开合值，必须始终给出入口 */
+function CollapsedHeaderActions({
+  onSelect,
+  onCreateConversation,
+}: {
+  onSelect: (id: string) => void;
+  onCreateConversation: () => void;
+}) {
+  const { t } = useTranslation();
+  const { state, isMobile } = useSidebar();
+
+  // 移动端仍是单独的汉堡按钮，展开后交给抽屉
+  if (isMobile) {
+    return <SidebarTrigger className="text-muted-foreground hover:text-foreground" />;
+  }
+  if (state !== "collapsed") return null;
+
+  // 收起后和 DeepSeek 一致：左边留空不放 logo，三个入口收进一条胶囊
+  return (
+    <div className="ds-icon-cluster flex shrink-0 items-center">
+      <SidebarTrigger className="ds-icon-btn size-[34px]" />
+      <ConversationSearchButton className="ds-icon-btn size-[34px]" iconOnly onSelect={onSelect} />
+      <Button
+        aria-label={t("conversation_sidebar.new_conversation")}
+        className="ds-icon-btn size-[34px]"
+        onClick={onCreateConversation}
+        size="icon"
+        title={t("conversation_sidebar.new_conversation")}
+        variant="ghost"
+      >
+        <CirclePlus className="size-[18px]" />
+      </Button>
+    </div>
+  );
 }
 
 export default function ConversationsPage() {
@@ -716,7 +762,7 @@ function ConversationsPageInner() {
   const isMobile = useIsMobile();
   const { panel, closePanel } = useWorkbench();
 
-  const { settings, assistants, currentAssistantId, currentAssistant } = useCurrentAssistant();
+  const { settings, assistants, currentAssistantId } = useCurrentAssistant();
   const {
     folders,
     selectedFolderId,
@@ -748,7 +794,6 @@ function ConversationsPageInner() {
 
   const { detail, detailLoading, detailError, selectedNodeMessages, resetDetail } =
     useConversationDetail(activeId, updateConversationSummary);
-  const { currentModel, currentProvider } = useCurrentModel(detail);
 
   const {
     draftKey,
@@ -782,6 +827,20 @@ function ConversationsPageInner() {
     };
   }, [activeConversation?.title, t]);
   const isNewChat = isHomeRoute && !activeId;
+
+  // 欢迎语每次进来随机一条，下标只在挂载时抽一次，重渲染不会跳；
+  // 切语言时靠 t 重新取值
+  const welcomeIndex = React.useMemo(() => Math.floor(Math.random() * 4), []);
+  const welcomePrompts = React.useMemo(
+    () => [
+      t("conversations.welcome_prompt"),
+      t("conversations.welcome_prompt_2"),
+      t("conversations.welcome_prompt_3"),
+      t("conversations.welcome_prompt_4"),
+    ],
+    [t],
+  );
+  const welcomePrompt = welcomePrompts[welcomeIndex] ?? welcomePrompts[0];
   const showSuggestions =
     Boolean(activeId) && !detailLoading && !detailError && chatSuggestions.length > 0;
   const displaySuggestions = showSuggestions ? chatSuggestions : EMPTY_SUGGESTIONS;
@@ -1051,9 +1110,50 @@ function ConversationsPageInner() {
     }
   }, [hasWorkbenchPanel, isMobile]);
 
+  // 桌面端输入区浮在消息列表之上，需要实测高度给列表补底部留白，
+  // 否则最后一条会被输入卡遮住。走 CSS 变量而不是 state：
+  // 输入框随行数变高时会连续触发 ResizeObserver，setState 会把整页重渲染一遍，
+  // 改变量只让浏览器重算这一块布局。
+  const composerRef = React.useRef<HTMLDivElement>(null);
+  const chatContentRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const element = composerRef.current;
+    const host = chatContentRef.current;
+    if (!element || !host) return;
+
+    const update = () => {
+      host.style.setProperty(
+        "--composer-height",
+        `${Math.round(element.getBoundingClientRect().height)}px`,
+      );
+    };
+
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [isMobile]);
+
+  // 分享 = 导出 Markdown。DeepSeek 在右上角放一个图标，点开才选导出粒度
+  const canShare = Boolean(detail && detail.messages.length > 0);
+  const handleExportConversation = React.useCallback(
+    (includeReasoning: boolean) => {
+      if (!detail || detail.messages.length === 0) return;
+      const content = convertConversationToMarkdown(detail, includeReasoning);
+      downloadMarkdown(content, `${detail.title || "conversation"}.md`);
+    },
+    [detail],
+  );
+
   const chatContent = (
     <div
-      className={cn("flex flex-1 flex-col min-h-0 overflow-hidden", isNewChat && "justify-center")}
+      ref={chatContentRef}
+      className={cn(
+        "relative flex flex-1 flex-col min-h-0 overflow-hidden",
+        // 新会话的欢迎块整体居中，但容器留 64px 底边距，视觉上比正中高 32px
+        isNewChat && "justify-center pb-16",
+      )}
     >
       {!isNewChat && (
         <div className="relative flex min-h-0 flex-1">
@@ -1066,6 +1166,7 @@ function ConversationsPageInner() {
             isGenerating={detail?.isGenerating ?? false}
             settings={settings}
             conversationAssistantId={detail?.assistantId ?? null}
+            contentClassName="md:pb-[calc(var(--composer-height,0px)+12px)]"
             onEdit={handleStartEdit}
             onDelete={handleDeleteMessage}
             onFork={handleForkMessage}
@@ -1076,18 +1177,25 @@ function ConversationsPageInner() {
         </div>
       )}
 
-      <div>
+      <div
+        ref={composerRef}
+        className={cn(
+          "shrink-0",
+          // 桌面端输入区浮在消息列表之上，滚动条才能一直画到窗口底部
+          !isNewChat && "md:pointer-events-none md:absolute md:inset-x-0 md:bottom-0 md:z-10",
+        )}
+      >
         {isNewChat && (
-          <div className="mb-4 text-center">
-            <div className="mb-3 flex justify-center">
-              <div className="[&>svg]:size-16">
-                <Logo className="size-16 text-primary" />
-              </div>
-            </div>
-            <p className="text-lg text-muted-foreground">{t("conversations.welcome_prompt")}</p>
+          <div className="mb-[21px] flex items-center justify-center gap-2 px-4">
+            <Logo className="size-8 shrink-0 text-primary max-[439px]:size-7" />
+            <p className="text-2xl font-semibold leading-8 text-foreground max-[439px]:text-xl max-[439px]:leading-7">
+              {welcomePrompt}
+            </p>
           </div>
         )}
         <ChatInput
+          className={!isNewChat ? "md:pointer-events-auto" : undefined}
+          welcome={isNewChat}
           value={inputText}
           attachments={inputAttachments}
           conversation={detail}
@@ -1104,15 +1212,6 @@ function ConversationsPageInner() {
           onRemovePart={handleRemoveInputPart}
           onSend={handleSend}
           onStop={activeId ? handleStop : undefined}
-          onExportConversation={
-            detail && detail.messages.length > 0
-              ? (includeReasoning: boolean) => {
-                  const content = convertConversationToMarkdown(detail, includeReasoning);
-                  const filename = `${detail.title || "conversation"}.md`;
-                  downloadMarkdown(content, filename);
-                }
-              : undefined
-          }
         />
       </div>
     </div>
@@ -1152,20 +1251,44 @@ function ConversationsPageInner() {
         onMoveToFolder={handleMoveConversationToFolder}
       />
       <SidebarInset className="flex min-h-svh flex-col overflow-hidden">
-        <div className="flex items-center gap-2 border-b px-4 py-3">
-          <SidebarTrigger />
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm text-muted-foreground">
-              {activeConversation
-                ? activeConversation.title
-                : t("conversations.header.select_conversation")}
+        {/* 与侧边栏顶栏同高（h-16），展开时左右两侧顶边才对得齐 */}
+        <div className="flex h-16 shrink-0 items-center gap-2 px-4">
+          <CollapsedHeaderActions
+            onSelect={handleSelect}
+            onCreateConversation={handleCreateConversation}
+          />
+          {/* 选中会话后才显示标题，没有时不再留一行「请选择会话」占位 */}
+          {activeConversation ? (
+            <div className="min-w-0 flex-1 truncate text-base font-medium text-foreground">
+              {activeConversation.title}
             </div>
-            {currentModel && currentProvider ? (
-              <div className="truncate text-xs text-muted-foreground/80">
-                {`${getAssistantDisplayName(currentAssistant?.name)} / ${getModelDisplayName(currentModel.displayName, currentModel.modelId)} (${currentProvider.name})`}
-              </div>
-            ) : null}
-          </div>
+          ) : null}
+          {/* 和 DeepSeek 一致：会话里有内容时，右上角才出现分享入口 */}
+          {canShare && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  aria-label={t("conversations.header.share")}
+                  className="ds-icon-btn size-8 shrink-0"
+                  size="icon"
+                  title={t("conversations.header.share")}
+                  variant="ghost"
+                >
+                  <Share className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" side="bottom" sideOffset={6}>
+                <DropdownMenuItem onSelect={() => handleExportConversation(false)}>
+                  <FileDown className="size-4" />
+                  <span>{t("conversations.header.export_markdown")}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => handleExportConversation(true)}>
+                  <FileDown className="size-4" />
+                  <span>{t("conversations.header.export_markdown_with_reasoning")}</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
 
         {!isMobile ? (
