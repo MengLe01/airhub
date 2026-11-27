@@ -130,6 +130,17 @@
   scrollbar-gutter: stable;
 }
 
+/* react-infinite-scroll-component 给自己那层 div 写了行内 style="overflow:auto"
+   （外面还套一层 __outerdiv），于是形成一个内层滚动容器。吸顶标题的负边距比它宽 12px，
+   内层就自己长出一条横向滚动条——它贴在内容末尾，只有滚到最底部才看得到。
+   滚动本来就走外层（scrollableTarget 指向外层），把内层改成不滚动即可。
+   行内样式只能用 !important 覆盖；用 clip 而不是 hidden，纵向才能真正保持 visible，
+   这样吸顶标题的粘附参照就是外层滚动容器。 */
+.scrollbar-on-hover .infinite-scroll-component {
+  overflow-x: clip !important;
+  overflow-y: visible !important;
+}
+
 /* 侧边栏滚动条平时透明，鼠标移入或滚动时显形
    （由 InfiniteScrollArea 的 autoHideScrollbar 打 data-scrolling 开关）。
    thumb 用透明而不是 display:none，槽位才能一直占着，显隐时列表宽度不跳。 */
@@ -241,22 +252,38 @@
   backdrop-filter: blur(2px);
 }
 
+/* 菜单容器：圆角 12、内边距 4，和 DeepSeek 的菜单一致。
+   宽度交给内容（min-w 由调用方给），不再统一写死，免得短文案的菜单撑得发空。 */
 [data-theme="deepseek"] [data-slot="dropdown-menu-content"],
 [data-theme="deepseek"] [data-slot="dropdown-menu-sub-content"] {
   border-color: color-mix(in oklab, var(--border) 60%, transparent);
-  border-radius: 0.625rem;
+  border-radius: 0.75rem;
+  padding: 4px;
   box-shadow: var(--ds-elevation-3);
 }
 
+/* 子菜单（移动 / 分组）里多是「移出文件夹」这类短文案，收窄一点 */
+[data-theme="deepseek"] [data-slot="dropdown-menu-sub-content"] {
+  min-width: 0;
+}
+
+/* 菜单项尺寸对齐 DeepSeek：8px 上下、10px 左右、圆角 8、图标与文字间距 8。
+   尺寸给所有项；配色只给普通项——危险项的红色由 tailwind 的
+   data-[variant=destructive] 工具类负责，这里覆盖会把它盖掉
+   （未分层样式优先于 @layer utilities）。 */
 [data-theme="deepseek"] [data-slot="dropdown-menu-item"],
 [data-theme="deepseek"] [data-slot="dropdown-menu-sub-trigger"] {
-  gap: 0.625rem;
+  gap: 0.5rem;
   border-radius: 8px;
-  padding: 0.625rem;
+  padding: 0.5rem 0.625rem;
+}
+
+[data-theme="deepseek"] [data-slot="dropdown-menu-item"]:not([data-variant="destructive"]),
+[data-theme="deepseek"] [data-slot="dropdown-menu-sub-trigger"] {
   color: var(--foreground);
 }
 
-[data-theme="deepseek"] [data-slot="dropdown-menu-item"] svg,
+[data-theme="deepseek"] [data-slot="dropdown-menu-item"]:not([data-variant="destructive"]) svg,
 [data-theme="deepseek"] [data-slot="dropdown-menu-sub-trigger"] svg {
   color: color-mix(in oklab, var(--foreground) 80%, transparent);
 }

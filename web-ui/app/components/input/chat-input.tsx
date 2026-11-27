@@ -476,12 +476,7 @@ function ChatInputInner({
   const placeholder = ready ? t("chat.placeholder_ready") : t("chat.placeholder_not_ready");
 
   return (
-    <div
-      className={cn(
-        "bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60",
-        className,
-      )}
-    >
+    <div className={cn("bg-background", className)}>
       <div className={cn("ds-chat-column px-4 md:px-11", welcome ? "py-0" : "py-4")}>
         <div
           data-chat-input-card

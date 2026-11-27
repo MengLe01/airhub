@@ -299,6 +299,8 @@ const ConversationListRow = React.memo(
     const [titleDraft, setTitleDraft] = React.useState("");
     // 输入框卸载时也会触发 blur，用 ref 保证 Enter / Esc 之后不会再提交一次
     const editingTitleRef = React.useRef(false);
+    // 菜单是鼠标点开的还是键盘打开的，决定关闭后要不要把焦点还回来
+    const openedByPointer = React.useRef(false);
 
     const moveTargets = React.useMemo(
       () => assistants.filter((assistant) => assistant.id !== conversation.assistantId),
@@ -369,7 +371,12 @@ const ConversationListRow = React.memo(
               void commitTitle();
             }}
             onChange={(event) => setTitleDraft(event.target.value)}
-            onFocus={(event) => event.currentTarget.select()}
+            // 光标放到末尾，不整段选中：全选后再打字会把原标题整个覆盖掉
+            onFocus={(event) => {
+              const element = event.currentTarget;
+              const end = element.value.length;
+              element.setSelectionRange(end, end);
+            }}
             onKeyDown={(event) => {
               // 中文输入法选词时按 Enter 只是上屏，不能当成提交
               if (event.key === "Enter" && !event.nativeEvent.isComposing) {
@@ -422,6 +429,9 @@ const ConversationListRow = React.memo(
                   aria-label={t("conversation_sidebar.conversation_actions")}
                   title={t("conversation_sidebar.conversation_actions")}
                   disabled={pendingAction !== null}
+                  onPointerDown={() => {
+                    openedByPointer.current = true;
+                  }}
                   onClick={(event) => {
                     event.stopPropagation();
                   }}
@@ -429,7 +439,21 @@ const ConversationListRow = React.memo(
                   <MoreHorizontal className="size-4" />
                 </SidebarMenuAction>
               </DropdownMenuTrigger>
-              <DropdownMenuContent side="right" align="start" className="w-48">
+              <DropdownMenuContent
+                align="start"
+                // 菜单关闭时 Radix 会把焦点还给触发按钮，而程序化聚焦会命中 :focus-visible，
+                // 于是点过的那一行的「…」上会留下一圈蓝色描边。
+                // 鼠标打开的情况下不还焦点；键盘打开时照旧还，Tab 导航的焦点环不能丢。
+                onCloseAutoFocus={(event) => {
+                  if (openedByPointer.current) {
+                    event.preventDefault();
+                    openedByPointer.current = false;
+                  }
+                }}
+                className="min-w-[124px]"
+                side="bottom"
+                sideOffset={6}
+              >
                 {/* 菜单顺序对齐 DeepSeek：置顶 / 重命名 / 自动命名 / 移动 / 分组 / 删除，
                     破坏性操作固定在末尾，离手最远 */}
                 {onPin && (
@@ -753,14 +777,14 @@ function FolderBar({
   );
 
   return (
-    <div className="flex items-center gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="-mt-1 mb-3 flex items-center gap-1.5 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <button
         type="button"
         onClick={() => onSelect(null)}
         className={cn(
           "inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition",
           selectedFolderId === null
-            ? "bg-primary text-primary-foreground"
+            ? "bg-muted text-foreground"
             : "bg-muted text-muted-foreground hover:bg-muted/80",
         )}
       >
@@ -788,7 +812,7 @@ function FolderBar({
               className={cn(
                 "inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition",
                 selected
-                  ? "bg-primary text-primary-foreground"
+                  ? "bg-muted text-foreground"
                   : "bg-muted text-muted-foreground hover:bg-muted/80",
               )}
             >
@@ -1002,8 +1026,10 @@ export const ConversationSidebar = React.memo(
 
     return (
       <Sidebar collapsible="offcanvas" variant="sidebar">
-        {/* 和主内容区顶部同高（h-16），展开时左右两侧顶边才对得齐 */}
-        <SidebarHeader className="h-16 flex-row items-center justify-between px-3 py-2">
+        {/* 和主内容区顶部同高（h-16）。内部改成底部对齐并留 12px 下边距：
+            内容底边正好落在 52px 处，接上下面 12px 的组间留白，视觉上三处等距。
+            不用负边距去追这个数——SidebarContent 会裁掉溢出的部分，按钮顶边会被切掉。 */}
+        <SidebarHeader className="flex h-16 flex-row items-end justify-between px-3 pb-3">
           <Logo className="size-6 shrink-0 text-primary" />
           <div className="flex items-center gap-1">
             <ConversationSearchButton iconOnly onSelect={onSelect} />
@@ -1011,7 +1037,7 @@ export const ConversationSidebar = React.memo(
           </div>
         </SidebarHeader>
         <SidebarContent className="min-h-0 overflow-x-hidden">
-          <SidebarGroup className="px-3 pt-1">
+          <SidebarGroup className="px-3 pt-0">
             <Button
               data-sidebar-new-chat
               variant="ghost"
@@ -1067,8 +1093,9 @@ export const ConversationSidebar = React.memo(
                 {sections.map((section, sectionIndex) => (
                   <li
                     key={section.key}
-                    // 组间距 16px + 顶部 4px（给吸顶标题留白），组内行距 0
-                    className={cn("flex min-w-0 flex-col", sectionIndex > 0 && "mt-4 pt-1")}
+                    // 组间距比 DeepSeek 原版更紧：那边是 16 + 4，这里收到 8 + 4。
+                    // 组内行距保持 0，靠这一档间距把分组区分开就够了
+                    className={cn("flex min-w-0 flex-col", sectionIndex > 0 && "mt-2 pt-1")}
                   >
                     <div
                       className={cn(
