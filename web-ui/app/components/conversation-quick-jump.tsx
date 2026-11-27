@@ -164,7 +164,6 @@ export function ConversationQuickJump({ items }: ConversationQuickJumpProps) {
                     index: index + 1,
                     role: roleLabel,
                   })}
-                  title={t("quick_jump.message_title", { index: index + 1, role: roleLabel })}
                   onClick={() => {
                     handleQuickJump(item.id);
                   }}

@@ -121,6 +121,29 @@
   font-weight: 400;
 }
 
+/* 悬停时标题跟着变浅灰，和 DeepSeek 一致：整行只给背景，文字不再保持近黑，
+   否则背景变浅、文字没变，反而比未悬停时更抢眼。
+   「…」也用同一档灰，悬停时再给它一层圆形浅底（DS 的 IconButton 行为）。 */
+[data-theme="deepseek"] [data-sidebar="menu-button"]:hover:not([data-active="true"]) {
+  color: var(--ds-label-secondary);
+}
+
+[data-theme="deepseek"] [data-sidebar="menu-button"][data-active="true"]:hover {
+  color: var(--primary);
+}
+
+[data-theme="deepseek"] [data-sidebar="menu-action"] {
+  color: var(--ds-label-caption);
+  transition:
+    background-color 150ms,
+    color 150ms;
+}
+
+[data-theme="deepseek"] [data-sidebar="menu-action"]:hover {
+  background-color: var(--ds-control-hover);
+  color: var(--ds-label-secondary);
+}
+
 /* 侧边栏滚动区：始终预留滚动条槽位。
    列表用 -mr-3 往右多占 12px，让滚动条落在右侧留白里，条目左右留白才相等；
    但内容不足一屏时没有滚动条，这 12px 会被条目吃掉，右边就顶到边界上。

@@ -429,7 +429,6 @@ const ConversationListRow = React.memo(
                   showOnHover
                   className="top-2.5!"
                   aria-label={t("conversation_sidebar.conversation_actions")}
-                  title={t("conversation_sidebar.conversation_actions")}
                   disabled={pendingAction !== null}
                   onPointerDown={() => {
                     openedByPointer.current = true;

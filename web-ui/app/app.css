@@ -69,6 +69,8 @@
      [data-theme="deepseek"] 里用精确色值覆盖。 */
   --ds-label-secondary: color-mix(in oklab, var(--foreground) 76%, transparent);
   --ds-label-caption: color-mix(in oklab, var(--foreground) 50%, transparent);
+  /* 图标按钮这类小控件的悬停底色 */
+  --ds-control-hover: color-mix(in oklab, var(--foreground) 6%, transparent);
   --ds-primary-hover: color-mix(in oklab, var(--primary) 88%, transparent);
   --ds-destructive-hover: color-mix(in oklab, var(--destructive) 88%, transparent);
   --ds-rule-strong: color-mix(in oklab, var(--foreground) 12%, transparent);
@@ -643,6 +645,7 @@
   --ds-chat-column: 52.5rem;
   --ds-label-secondary: #61666b;
   --ds-label-caption: #adb2b8;
+  --ds-control-hover: rgb(38 49 72 / 0.06);
   --ds-primary-hover: #5686fe;
   --ds-destructive-hover: #f25a5a;
   --ds-code-inline-bg: #ebeef2;
@@ -684,6 +687,7 @@
   --ds-chat-column: 52.5rem;
   --ds-label-secondary: #cfd3d6;
   --ds-label-caption: #adb2b8;
+  --ds-control-hover: rgb(255 255 255 / 0.08);
   --ds-primary-hover: #5686fe;
   --ds-destructive-hover: #f25a5a;
   --ds-code-inline-bg: #2c2c2e;
