@@ -132,6 +132,13 @@
   color: var(--primary);
 }
 
+/* 会话行与重命名输入框的圆角固定 12px，与 DeepSeek 一致。
+   不能直接用 rounded-xl：它等于 --radius + 4px，而本主题的 --radius 是 12px，
+   算出来是 16px，比 DeepSeek 圆一档。写死避免再被 token 改动带偏。 */
+[data-theme="deepseek"] [data-sidebar-row] {
+  border-radius: 12px;
+}
+
 /* 「…」按钮：平时 caption 灰，悬停或菜单打开时给一层圆形浅底。
    点击前后用同一个色，否则点开菜单的瞬间底色会跳一下。 */
 [data-theme="deepseek"] [data-sidebar="menu-action"] {
