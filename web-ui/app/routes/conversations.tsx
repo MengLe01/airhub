@@ -1135,6 +1135,42 @@ function ConversationsPageInner() {
     return () => observer.disconnect();
   }, [isMobile]);
 
+  // 进入已有对话时，消息是异步到达的：内容会先以「顶部」的滚动位置渲染出来，
+  // 再被 StickToBottom 拉到最底部，看起来就是内容闪一下又瞬移。
+  // 这里在滚动落到底之前先把列表藏起来（visibility 不占位变化，布局照常计算，
+  // 所以库仍然能算出正确的高度并滚到底），到底后再显示。
+  // 用「记录已揭示的会话 id」而不是布尔量：切走时自然变回未揭示，不会闪一帧旧内容。
+  const [revealedFor, setRevealedFor] = React.useState<string | null>(null);
+  const contentRevealed = revealedFor === activeId;
+
+  React.useEffect(() => {
+    if (contentRevealed || !activeId) return;
+    // 数据还没到，继续等
+    if (detailLoading || (!detail && !detailError)) return;
+    // 出错时直接显示，把错误状态露出来比一直空着好
+    if (detailError) {
+      setRevealedFor(activeId);
+      return;
+    }
+
+    // 最多等 12 帧；通常第二三帧就已经在底部了
+    let frame = 0;
+    let raf = 0;
+    const check = () => {
+      const scroller = document.querySelector('[role="log"] > div');
+      frame += 1;
+      const atBottom =
+        !scroller || scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop < 2;
+      if (atBottom || frame >= 12) {
+        setRevealedFor(activeId);
+        return;
+      }
+      raf = requestAnimationFrame(check);
+    };
+    raf = requestAnimationFrame(check);
+    return () => cancelAnimationFrame(raf);
+  }, [activeId, contentRevealed, detail, detailError, detailLoading]);
+
   // 分享 = 导出 Markdown。DeepSeek 在右上角放一个图标，点开才选导出粒度
   const canShare = Boolean(detail && detail.messages.length > 0);
   const handleExportConversation = React.useCallback(
@@ -1156,7 +1192,13 @@ function ConversationsPageInner() {
       )}
     >
       {!isNewChat && (
-        <div className="relative flex min-h-0 flex-1">
+        <div
+          className={cn(
+            "relative flex min-h-0 flex-1",
+            // 滚动落到底之前先藏起来，避免看到内容从顶部瞬移到底部
+            !contentRevealed && "invisible",
+          )}
+        >
           <ConversationTimeline
             activeId={activeId}
             isHomeRoute={isHomeRoute}
