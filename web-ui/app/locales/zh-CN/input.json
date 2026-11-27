@@ -43,15 +43,15 @@
         "description": "让模型自动决定推理级别。"
       },
       "low": {
-        "label": "轻度推理",
+        "label": "轻度",
         "description": "模型将使用少量推理来回答问题。"
       },
       "medium": {
-        "label": "中度推理",
+        "label": "中度",
         "description": "模型将使用更多推理来回答问题。"
       },
       "high": {
-        "label": "重度推理",
+        "label": "重度",
         "description": "模型将使用大量推理来回答问题。"
       },
       "xhigh": {

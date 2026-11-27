@@ -12,6 +12,7 @@ import { useOptionalWorkbench } from "~/components/workbench/workbench-context";
 import { useSettingsStore } from "~/stores";
 import { CodeBlock } from "./code-block";
 import remarkSoftBreak from "./remark-soft-break";
+import { tableComponents } from "./table-block";
 import "katex/dist/katex.min.css";
 // mhchem 扩展: 支持 \ce{} 等化学公式语法
 import "katex/dist/contrib/mhchem.mjs";
@@ -118,8 +119,10 @@ export default function Markdown({
         plugins={{ cjk: cjk }}
         animated={{ animation: "fadeIn", sep: "word", duration: 150 }}
         isAnimating={isAnimating}
-        controls={{ code: false, mermaid: false }}
+        // 表格自带的复制下拉 / 下载 / 全屏关掉，统一用 table-block 里那个复制按钮
+        controls={{ code: false, mermaid: false, table: { copy: false, download: false, fullscreen: false } }}
         components={{
+          ...tableComponents,
           pre: ({ children }) => <>{children}</>,
           code: ({ className, children, ...props }) => {
             const match = /language-([A-Za-z0-9_-]+)/.exec(className || "");

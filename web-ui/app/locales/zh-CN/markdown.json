@@ -12,5 +12,8 @@
   },
   "markdown": {
     "code_preview_title": "{{language}} 预览"
+  },
+  "table": {
+    "copy_markdown": "复制表格"
   }
 }

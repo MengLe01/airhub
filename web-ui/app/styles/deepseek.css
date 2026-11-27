@@ -361,28 +361,9 @@
 }
 
 /* ---------- 表格 ----------
-   Streamdown 给表格套了「边框卡片 + 内嵌边框盒子 + 表头底色 + 行分隔线」四层装饰，
-   DeepSeek 的表只有横向分隔线。这里按它自己打的 data-streamdown 标记逐层剥掉，
-   不去覆盖组件——上游改表格组件时这些标记仍在，样式不会跟着失效。 */
-[data-theme="deepseek"] [data-streamdown="table-wrapper"] {
-  gap: 0;
-  border: none;
-  border-radius: 0;
-  background-color: transparent;
-  padding: 0;
-}
-
-[data-theme="deepseek"] [data-streamdown="table-wrapper"] > div {
-  border: none;
-  border-radius: 0;
-  background-color: transparent;
-}
-
-[data-theme="deepseek"] [data-streamdown="table-wrapper"] table {
-  border: none;
-  text-align: left;
-}
-
+   DeepSeek 的表只有横向分隔线：表头底色、外框、行分隔线都由 streamdown 自己的
+   data-streamdown 标记接管。外层容器换成 table-block.tsx（带一个复制按钮），
+   所以这里只处理单元格，不再需要剥它原有的卡片外壳。 */
 [data-theme="deepseek"] [data-streamdown="table-header"] {
   background-color: transparent;
 }
@@ -400,6 +381,19 @@
   font-weight: 500;
   color: var(--foreground);
   white-space: nowrap;
+}
+
+/* 表格本体由 table-block.tsx 渲染，不带 streamdown 的 data 标记 */
+.ds-table table {
+  margin: 0;
+  border: none;
+  text-align: left;
+}
+
+/* streamdown 的 tbody 带 divide-y，会和单元格自身的下边框叠成双线 */
+.ds-table tbody > tr,
+.ds-table thead > tr {
+  border-width: 0;
 }
 
 [data-theme="deepseek"] [data-streamdown="table-cell"] {
@@ -424,4 +418,56 @@
 
 [data-theme="deepseek"] [data-streamdown="table-cell"] code {
   font-size: 13px;
+}
+
+/* 表格外层的操作行与横向滚动容器（table-block.tsx） */
+.ds-table {
+  margin-block: 1rem;
+}
+
+.ds-table-actions {
+  display: flex;
+  height: 1.75rem;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.ds-table-scroll {
+  overflow-x: auto;
+}
+
+/* 复制按钮与代码块的小按钮同一套外观；桌面端悬停才显形，触屏常显 */
+.ds-table-copy {
+  display: inline-flex;
+  height: 1.5rem;
+  align-items: center;
+  gap: 3px;
+  border-radius: 8px;
+  padding-inline: 0.5rem;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--ds-label-secondary);
+  transition:
+    background-color 150ms,
+    color 150ms;
+}
+
+.ds-table-copy:hover {
+  background-color: var(--muted);
+  color: var(--foreground);
+}
+
+.ds-table-copy:active {
+  background-color: var(--muted);
+}
+
+@media (min-width: 48rem) {
+  .ds-table-copy {
+    opacity: 0;
+  }
+
+  .ds-table:hover .ds-table-copy,
+  .ds-table-copy:focus-visible {
+    opacity: 1;
+  }
 }
