@@ -13,16 +13,6 @@ export interface ChatMessageAvatarRowProps {
   model?: ProviderModel | null;
 }
 
-function formatMessageTimestamp(createdAt: string, locale?: string): string | null {
-  const timestamp = Date.parse(createdAt);
-  if (Number.isNaN(timestamp)) return null;
-
-  return new Intl.DateTimeFormat(locale || undefined, {
-    dateStyle: "medium",
-    timeStyle: "medium",
-  }).format(timestamp);
-}
-
 export function ChatMessageAvatarRow({
   message,
   hasMessageContent,
@@ -30,14 +20,12 @@ export function ChatMessageAvatarRow({
   assistant,
   model,
 }: ChatMessageAvatarRowProps) {
-  const { t, i18n } = useTranslation(["common", "page"]);
+  const { t } = useTranslation(["common", "page"]);
   const displaySetting = useSettingsStore((state) => state.settings?.displaySetting);
 
   if (!hasMessageContent) {
     return null;
   }
-
-  const createdAtLabel = formatMessageTimestamp(message.createdAt, i18n.language);
 
   if (message.role === "USER") {
     if (!displaySetting?.showUserAvatar) {
@@ -51,12 +39,7 @@ export function ChatMessageAvatarRow({
     return (
       <div className="flex w-full justify-end">
         <div className="flex items-center gap-2">
-          <div className="min-w-0 text-right">
-            <div className="truncate text-sm font-medium text-foreground/90">{userName}</div>
-            {createdAtLabel ? (
-              <div className="truncate text-xs text-muted-foreground/80">{createdAtLabel}</div>
-            ) : null}
-          </div>
+          <div className="min-w-0 truncate text-sm font-medium text-foreground/90">{userName}</div>
           <UIAvatar name={userName} avatar={displaySetting.userAvatar} className="size-9" />
         </div>
       </div>
@@ -70,7 +53,7 @@ export function ChatMessageAvatarRow({
   const showModelIcon = displaySetting?.showModelIcon !== false;
   const showModelName = displaySetting?.showModelName === true;
 
-  // 模型被删除后用消息上的快照；两者都没有时退回助手名称，时间照常显示
+  // 模型被删除后用消息上的快照；两者都没有时退回助手名称
   const modelInfo = model ?? message.modelSnapshot ?? null;
   const useAssistantAvatar = assistant?.useAssistantAvatar === true;
   const defaultAssistantName = t("common:quick_jump.role_assistant", { defaultValue: "Assistant" });
@@ -100,12 +83,7 @@ export function ChatMessageAvatarRow({
       <div className="flex min-w-0 items-center gap-2">
         {icon}
         {showModelName ? (
-          <div className="min-w-0">
-            <div className="truncate text-sm font-medium text-foreground/90">{title}</div>
-            {createdAtLabel ? (
-              <div className="truncate text-xs text-muted-foreground/80">{createdAtLabel}</div>
-            ) : null}
-          </div>
+          <div className="min-w-0 truncate text-sm font-medium text-foreground/90">{title}</div>
         ) : null}
       </div>
     </div>

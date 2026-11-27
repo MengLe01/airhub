@@ -1,4 +1,5 @@
 import * as React from "react";
+import dayjs from "dayjs";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
@@ -36,6 +37,7 @@ import { copyTextToClipboard } from "~/lib/clipboard";
 import { convertMessageToMarkdown, downloadMarkdown } from "~/lib/export-markdown";
 import { cn } from "~/lib/utils";
 import { Button } from "~/components/ui/button";
+import { ConfirmDialog } from "~/components/ui/confirm-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -122,6 +124,27 @@ function hasEditableContent(parts: UIMessagePart[]): boolean {
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat().format(value);
+}
+
+// 与 App 端一致：按 Unicode 码点统计正文字数，中文和 emoji 各算一个
+function countTextCharacters(parts: UIMessagePart[]): number {
+  let count = 0;
+  for (const part of parts) {
+    if (part.type !== "text") continue;
+    count += Array.from(part.text).length;
+  }
+  return count;
+}
+
+// 今天只显示时间，其他日期显示月日，跟随浏览器语言
+function formatMessageTime(createdAt: string): string {
+  const time = dayjs(createdAt);
+  if (!time.isValid()) return "";
+  const sameDay = time.isSame(dayjs(), "day");
+  return new Intl.DateTimeFormat(
+    undefined,
+    sameDay ? { hour: "2-digit", minute: "2-digit" } : { month: "short", day: "numeric" },
+  ).format(time.toDate());
 }
 
 function getDurationMs(createdAt: string, finishedAt?: string | null): number | null {
@@ -275,6 +298,8 @@ const ChatMessageActionsRow = React.memo(({
   const [switchingBranch, setSwitchingBranch] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
   const [forking, setForking] = React.useState(false);
+  // 替代 window.confirm：记录当前是哪种操作在等确认
+  const [confirmAction, setConfirmAction] = React.useState<null | "regenerate" | "delete">(null);
 
   const handleCopy = React.useCallback(async () => {
     const text = buildCopyText(message.parts, t);
@@ -287,13 +312,8 @@ const ChatMessageActionsRow = React.memo(({
     }
   }, [message.parts, t]);
 
-  const handleRegenerate = React.useCallback(async () => {
+  const runRegenerate = React.useCallback(async () => {
     if (!onRegenerate) return;
-
-    if (message.role === "USER") {
-      const confirmed = window.confirm(t("chat_message.regenerate_from_user_confirm"));
-      if (!confirmed) return;
-    }
 
     setRegenerating(true);
     try {
@@ -301,7 +321,19 @@ const ChatMessageActionsRow = React.memo(({
     } finally {
       setRegenerating(false);
     }
-  }, [message.id, message.role, onRegenerate, t]);
+  }, [message.id, onRegenerate]);
+
+  const handleRegenerate = React.useCallback(() => {
+    if (!onRegenerate) return;
+
+    // 从用户消息重新生成会砍掉后面的内容，先弹确认
+    if (message.role === "USER") {
+      setConfirmAction("regenerate");
+      return;
+    }
+
+    void runRegenerate();
+  }, [message.role, onRegenerate, runRegenerate]);
 
   const handleSwitchBranch = React.useCallback(
     async (selectIndex: number) => {
@@ -319,11 +351,8 @@ const ChatMessageActionsRow = React.memo(({
     [node.id, node.messages.length, node.selectIndex, onSelectBranch],
   );
 
-  const handleDelete = React.useCallback(async () => {
+  const runDelete = React.useCallback(async () => {
     if (!onDelete) return;
-
-    const confirmed = window.confirm(t("chat_message.delete_confirm"));
-    if (!confirmed) return;
 
     setDeleting(true);
     try {
@@ -331,7 +360,12 @@ const ChatMessageActionsRow = React.memo(({
     } finally {
       setDeleting(false);
     }
-  }, [message.id, onDelete, t]);
+  }, [message.id, onDelete]);
+
+  const handleDelete = React.useCallback(() => {
+    if (!onDelete) return;
+    setConfirmAction("delete");
+  }, [onDelete]);
 
   const handleFork = React.useCallback(async () => {
     if (!onFork) return;
@@ -350,6 +384,11 @@ const ChatMessageActionsRow = React.memo(({
     (message.role === "USER" || message.role === "ASSISTANT") &&
     hasEditableContent(message.parts);
   const actionDisabled = loading || switchingBranch || regenerating || deleting || forking;
+  const displaySetting = useSettingsStore((state) => state.settings?.displaySetting);
+  const characterCount = React.useMemo(() => countTextCharacters(message.parts), [message.parts]);
+  const showCharacterCount =
+    (displaySetting?.showCharacterCountInMessage ?? true) && characterCount > 0;
+  const showDateTime = displaySetting?.showDateTimeInMessage ?? false;
 
   return (
     <div
@@ -495,6 +534,49 @@ const ChatMessageActionsRow = React.memo(({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {showDateTime && (
+        <span className="px-1 text-[11px] text-muted-foreground/50">
+          {formatMessageTime(message.createdAt)}
+        </span>
+      )}
+
+      {showCharacterCount && (
+        <span className="px-1 text-[11px] text-muted-foreground/50">
+          {t("chat_message.character_count", { count: characterCount })}
+        </span>
+      )}
+
+      <ConfirmDialog
+        cancelText={t("chat_message.cancel")}
+        confirmText={
+          confirmAction === "regenerate"
+            ? t("chat_message.regenerate")
+            : t("chat_message.delete_action")
+        }
+        description={
+          confirmAction === "regenerate"
+            ? t("chat_message.regenerate_from_user_description")
+            : undefined
+        }
+        destructive={confirmAction === "delete"}
+        onConfirm={async () => {
+          if (confirmAction === "regenerate") {
+            await runRegenerate();
+          } else if (confirmAction === "delete") {
+            await runDelete();
+          }
+        }}
+        onOpenChange={(open) => {
+          if (!open) setConfirmAction(null);
+        }}
+        open={confirmAction !== null}
+        title={
+          confirmAction === "regenerate"
+            ? t("chat_message.regenerate_from_user_title")
+            : t("chat_message.delete_title")
+        }
+      />
     </div>
   );
 });
@@ -547,12 +629,10 @@ const ChatMessageContextCheckpoint = React.memo(({
   const { t } = useTranslation("message");
   const [expanded, setExpanded] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
 
-  const handleDelete = React.useCallback(async () => {
+  const runDelete = React.useCallback(async () => {
     if (!onDelete) return;
-
-    const confirmed = window.confirm(t("chat_message.context_checkpoint_delete_confirm"));
-    if (!confirmed) return;
 
     setDeleting(true);
     try {
@@ -560,7 +640,12 @@ const ChatMessageContextCheckpoint = React.memo(({
     } finally {
       setDeleting(false);
     }
-  }, [message.id, onDelete, t]);
+  }, [message.id, onDelete]);
+
+  const handleDelete = React.useCallback(() => {
+    if (!onDelete) return;
+    setConfirmOpen(true);
+  }, [onDelete]);
 
   return (
     <div className="flex w-full flex-col gap-2" data-message-role="context-checkpoint">
@@ -616,6 +701,17 @@ const ChatMessageContextCheckpoint = React.memo(({
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        cancelText={t("chat_message.cancel")}
+        confirmText={t("chat_message.delete_action")}
+        description={t("chat_message.context_checkpoint_delete_confirm")}
+        destructive
+        onConfirm={runDelete}
+        onOpenChange={setConfirmOpen}
+        open={confirmOpen}
+        title={t("chat_message.context_checkpoint_delete_title")}
+      />
     </div>
   );
 });
@@ -673,10 +769,13 @@ export const ChatMessage = React.memo(({
 
         <div className={cn("flex w-full", isUser ? "justify-end" : "justify-start")}>
           <div
-            data-message-bubble
+            data-message-bubble={isUser ? "user" : "assistant"}
             className={cn(
-              "flex flex-col gap-2 text-sm",
-              isUser ? "max-w-[85%] rounded-lg bg-muted px-4 py-3" : "w-full",
+              "flex flex-col gap-2 text-base",
+              isUser
+                ? // 22px 圆角、淡蓝底（主题里取色），右侧给头像列让出空间
+                  "max-w-[calc(100%-88px)] rounded-[22px] bg-muted px-4 py-2.5 leading-6 max-[439px]:max-w-[calc(100%-68px)]"
+                : "w-full",
             )}
           >
             <MessageParts
