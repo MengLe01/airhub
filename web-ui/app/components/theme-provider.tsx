@@ -2,10 +2,18 @@ import { createContext, useContext, useEffect, useState } from "react";
 
 export type ThemeMode = "dark" | "light" | "system";
 export type Theme = ThemeMode;
-export type ColorTheme = "default" | "claude" | "t3-chat" | "mono" | "bubblegum" | "custom";
+export type ColorTheme =
+  | "default"
+  | "deepseek"
+  | "claude"
+  | "t3-chat"
+  | "mono"
+  | "bubblegum"
+  | "custom";
 
 export const COLOR_THEMES: ColorTheme[] = [
   "default",
+  "deepseek",
   "claude",
   "t3-chat",
   "mono",
@@ -111,7 +119,7 @@ function scopeCustomThemeCss(value: string, mode: "light" | "dark"): string {
 export function ThemeProvider({
   children,
   defaultTheme = "system",
-  defaultColorTheme = "default",
+  defaultColorTheme = "deepseek",
   storageKey = "vite-ui-theme",
   ...props
 }: ThemeProviderProps) {

@@ -1,0 +1,427 @@
+/**
+ * 定制样式总入口。app.css 只 import 一次，上游改动不会波及这里。
+ *
+ * 分两层：
+ *   1. 组件形状：不带 [data-theme]，所有配色主题共用（输入区按钮、胶囊、栏宽）；
+ *   2. 主题视觉：挂在 [data-theme="deepseek"] 下，只影响 DeepSeek 主题。
+ *
+ * 组件侧只负责挂 data-* 属性和 .ds-* 类名，具体尺寸与配色都在这里，
+ * 上游重排 JSX 时改这一份文件即可，不用在几十个 className 里找同样的数字。
+ */
+
+/* ============================================================
+ * 1. 组件形状
+ * ============================================================ */
+
+/* 会话正文栏宽：消息列表、输入区、回到底部按钮共用一个宽度 */
+.ds-chat-column {
+  width: 100%;
+  max-width: var(--ds-chat-column);
+  margin-inline: auto;
+}
+
+/* 输入区与消息操作栏的 34px 圆形图标按钮 */
+.ds-icon-btn {
+  height: 34px;
+  min-width: 34px;
+  border-radius: 9999px;
+  color: var(--ds-label-caption);
+  transition:
+    background-color 150ms,
+    color 150ms;
+}
+
+.ds-icon-btn:hover:not(:disabled) {
+  background-color: var(--muted);
+  color: var(--foreground);
+}
+
+/* 主区左上角收起态的三个入口：一条描边胶囊，和 DeepSeek 一致 */
+.ds-icon-cluster {
+  height: 44px;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background-color: var(--background);
+  padding-inline: 4px;
+}
+
+.ds-icon-cluster .ds-icon-btn {
+  color: color-mix(in oklab, var(--foreground) 75%, transparent);
+}
+
+/* 输入区左侧的胶囊按钮：模型选择、深度思考 */
+.ds-pill {
+  height: 34px;
+  gap: 0.375rem;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  padding-inline: 0.75rem;
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+/* 处于启用状态的胶囊（例如已打开深度思考）用主色描边 */
+.ds-pill[data-active="true"] {
+  border-color: color-mix(in oklab, var(--primary) 40%, transparent);
+  background-color: color-mix(in oklab, var(--primary) 8%, transparent);
+  color: var(--primary);
+}
+
+.ds-pill[data-active="true"]:hover:not(:disabled) {
+  background-color: color-mix(in oklab, var(--primary) 12%, transparent);
+  color: var(--primary);
+}
+
+/* 侧边栏「开启新对话」：白底胶囊 */
+[data-sidebar-new-chat] {
+  height: 40px;
+  gap: 0.375rem;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  background-color: var(--card);
+  box-shadow: 0 2px 2px rgb(106 111 117 / 0.09);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+/* ============================================================
+ * 2. DeepSeek 主题视觉
+ * ============================================================ */
+
+/* 用户消息气泡：淡蓝底 + 22px 圆角 */
+[data-theme="deepseek"] [data-message-bubble="user"] {
+  background-color: var(--ds-chat-bubble);
+  color: var(--foreground);
+}
+
+/* 输入卡：白底 + 柔和阴影，代替默认的浅灰底 */
+[data-theme="deepseek"] [data-chat-input-card] {
+  border-color: var(--border);
+  background-color: var(--card);
+  box-shadow:
+    0 4px 12px 0 rgb(72 104 178 / 0.04),
+    0 2px 2px 0 rgb(72 104 178 / 0.01),
+    0 30px 60px 0 rgb(72 104 178 / 0.03);
+}
+
+/* 侧边栏条目：悬停是浅灰，选中是淡蓝。
+   ui/sidebar.tsx 里 hover 与 data-active 共用 --sidebar-accent，
+   不区分就会让人觉得「鼠标停在哪里，哪里就是当前会话」。 */
+[data-theme="deepseek"] [data-sidebar="menu-button"]:hover:not([data-active="true"]) {
+  background-color: var(--ds-sidebar-hover);
+}
+
+/* 选中条目用品牌蓝，且不加粗（ui/sidebar.tsx 默认给 active 加了 font-medium） */
+[data-theme="deepseek"] [data-sidebar="menu-button"][data-active="true"] {
+  color: var(--primary);
+  font-weight: 400;
+}
+
+/* 侧边栏滚动区：始终预留滚动条槽位。
+   列表用 -mr-3 往右多占 12px，让滚动条落在右侧留白里，条目左右留白才相等；
+   但内容不足一屏时没有滚动条，这 12px 会被条目吃掉，右边就顶到边界上。
+   scrollbar-gutter: stable 让槽位常驻，有没有滚动条 clientWidth 都不变。
+   它不属于 scrollbar-width / scrollbar-color 那一组，不会让 Chrome 切回系统原生滚动条。 */
+.scrollbar-on-hover {
+  scrollbar-gutter: stable;
+}
+
+/* 侧边栏滚动条平时透明，鼠标移入或滚动时显形
+   （由 InfiniteScrollArea 的 autoHideScrollbar 打 data-scrolling 开关）。
+   thumb 用透明而不是 display:none，槽位才能一直占着，显隐时列表宽度不跳。 */
+.scrollbar-on-hover::-webkit-scrollbar-thumb {
+  background-color: transparent;
+}
+
+.scrollbar-on-hover[data-scrolling="true"]::-webkit-scrollbar-thumb {
+  background-color: rgb(0 0 0 / 0.16);
+}
+
+.dark .scrollbar-on-hover[data-scrolling="true"]::-webkit-scrollbar-thumb {
+  background-color: rgb(255 255 255 / 0.22);
+}
+
+/* 回到底部：32px 白色圆钮，贴输入卡上方，右边缘与正文栏对齐 */
+.ds-scroll-bottom-button {
+  position: absolute;
+  z-index: 20;
+  right: max(16px, calc((100% - var(--ds-chat-column)) / 2 + 44px));
+  bottom: 1rem;
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+  background-color: var(--background);
+  color: color-mix(in oklab, var(--foreground) 75%, transparent);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.08);
+}
+
+.ds-scroll-bottom-button:hover {
+  background-color: var(--muted);
+  color: var(--foreground);
+}
+
+/* 桌面端输入区浮在底部，往上抬到输入卡之上 */
+@media (min-width: 48rem) {
+  .ds-scroll-bottom-button {
+    bottom: calc(var(--composer-height, 0px) + 6px);
+  }
+}
+
+/* ---------- 消息定位条 ---------- */
+
+/* 贴正文栏右侧的一条细刻度，滚动静止后淡出，鼠标移上去常显 */
+.ds-quick-jump-rail {
+  right: clamp(14px, calc((100% - var(--ds-chat-column)) / 2 - 14px), 24px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transform: translateY(-50%);
+  opacity: 0;
+  transition: opacity 300ms;
+}
+
+.ds-quick-jump-rail[data-visible="true"],
+.ds-quick-jump-rail:hover {
+  opacity: 1;
+}
+
+.ds-quick-jump-item {
+  display: flex;
+  width: 16px;
+  height: 12px;
+  align-items: center;
+  justify-content: center;
+}
+
+.ds-quick-jump-mark {
+  display: block;
+  height: 2px;
+  width: 10px;
+  border-radius: 9999px;
+  background-color: color-mix(in oklab, var(--foreground) 15%, transparent);
+  transition:
+    background-color 200ms,
+    width 200ms,
+    height 200ms;
+}
+
+.ds-quick-jump-item:hover .ds-quick-jump-mark {
+  background-color: color-mix(in oklab, var(--foreground) 35%, transparent);
+}
+
+.ds-quick-jump-item[data-active="true"] .ds-quick-jump-mark {
+  height: 3px;
+  width: 16px;
+  background-color: var(--primary);
+}
+
+/* ---------- 弹出层 ---------- */
+
+/* 确认 / 输入弹窗：24px 圆角小卡片 + 更浅的模糊遮罩 */
+[data-theme="deepseek"] .ds-dialog {
+  border-color: color-mix(in oklab, var(--border) 70%, transparent);
+  border-radius: 1.5rem;
+  box-shadow: var(--ds-elevation-3);
+}
+
+[data-theme="deepseek"] .ds-dialog-button {
+  font-weight: 500;
+  box-shadow: none;
+}
+
+/* 遮罩：36% 黑 + 2px 模糊，比全局的 50% 纯色更轻 */
+[data-theme="deepseek"] .ds-dialog-overlay {
+  background-color: rgb(0 0 0 / 0.36);
+  backdrop-filter: blur(2px);
+}
+
+[data-theme="deepseek"] [data-slot="dropdown-menu-content"],
+[data-theme="deepseek"] [data-slot="dropdown-menu-sub-content"] {
+  border-color: color-mix(in oklab, var(--border) 60%, transparent);
+  border-radius: 0.625rem;
+  box-shadow: var(--ds-elevation-3);
+}
+
+[data-theme="deepseek"] [data-slot="dropdown-menu-item"],
+[data-theme="deepseek"] [data-slot="dropdown-menu-sub-trigger"] {
+  gap: 0.625rem;
+  border-radius: 8px;
+  padding: 0.625rem;
+  color: var(--foreground);
+}
+
+[data-theme="deepseek"] [data-slot="dropdown-menu-item"] svg,
+[data-theme="deepseek"] [data-slot="dropdown-menu-sub-trigger"] svg {
+  color: color-mix(in oklab, var(--foreground) 80%, transparent);
+}
+
+/* ---------- Markdown 排版 ---------- */
+
+/* 正文 16px，标题层级收敛到 24 / 22 / 20 / 16 */
+[data-theme="deepseek"] .markdown {
+  font-size: 1rem;
+}
+
+[data-theme="deepseek"] .markdown h1 {
+  border-bottom: none;
+  padding-bottom: 0;
+  font-size: 24px;
+  line-height: 34px;
+}
+
+[data-theme="deepseek"] .markdown h2 {
+  border-bottom: none;
+  padding-bottom: 0;
+  font-size: 22px;
+  line-height: 32px;
+  font-weight: 700;
+}
+
+[data-theme="deepseek"] .markdown h3 {
+  font-size: 20px;
+  line-height: 30px;
+  font-weight: 700;
+}
+
+[data-theme="deepseek"] .markdown h4 {
+  font-size: 16px;
+  line-height: 28px;
+}
+
+[data-theme="deepseek"] .markdown h5 {
+  font-size: 15px;
+  line-height: 26px;
+}
+
+[data-theme="deepseek"] .markdown h6 {
+  font-size: 14px;
+  line-height: 24px;
+}
+
+/* 用户气泡里的正文用 24px 行高，沿用 28px 的话单行气泡会高出 4px */
+[data-theme="deepseek"] [data-message-bubble="user"] .markdown,
+[data-theme="deepseek"] [data-message-bubble="user"] .markdown p {
+  line-height: 24px;
+}
+
+/* 列表：Streamdown 给每个 li 都加了 py-1（上下各 4px），
+   叠加父级的 mt-2 后相邻条目变成 44px，比 DeepSeek 松一截；
+   这里把行内边距压掉，节奏回到「行高 + 4px」 */
+[data-theme="deepseek"] .markdown ul > li,
+[data-theme="deepseek"] .markdown ol > li {
+  margin-top: 0.25rem;
+  padding-block: 0;
+}
+
+/* 行内代码与代码块：整块只有一个浅底，没有描边和分隔线 */
+[data-theme="deepseek"] .markdown .inline-code {
+  background-color: var(--ds-code-inline-bg);
+}
+
+[data-theme="deepseek"] .markdown .code-block {
+  border: none;
+  background-color: var(--ds-code-block-bg);
+}
+
+[data-theme="deepseek"] .markdown .code-block-header {
+  border-bottom: none;
+  background-color: transparent;
+  padding: 0.375rem;
+}
+
+[data-theme="deepseek"] .markdown .code-block-language {
+  margin-left: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--foreground);
+}
+
+[data-theme="deepseek"] .markdown .code-block-content pre {
+  padding: 1rem;
+  font-size: 13px;
+  line-height: 22px;
+}
+
+/* 代码块与表格的操作按钮共用同一套小按钮外观 */
+[data-theme="deepseek"] .code-block-copy {
+  height: 28px;
+  gap: 3px;
+  border-radius: 8px;
+  padding-inline: 0.625rem;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--ds-label-secondary);
+}
+
+/* ---------- 表格 ----------
+   Streamdown 给表格套了「边框卡片 + 内嵌边框盒子 + 表头底色 + 行分隔线」四层装饰，
+   DeepSeek 的表只有横向分隔线。这里按它自己打的 data-streamdown 标记逐层剥掉，
+   不去覆盖组件——上游改表格组件时这些标记仍在，样式不会跟着失效。 */
+[data-theme="deepseek"] [data-streamdown="table-wrapper"] {
+  gap: 0;
+  border: none;
+  border-radius: 0;
+  background-color: transparent;
+  padding: 0;
+}
+
+[data-theme="deepseek"] [data-streamdown="table-wrapper"] > div {
+  border: none;
+  border-radius: 0;
+  background-color: transparent;
+}
+
+[data-theme="deepseek"] [data-streamdown="table-wrapper"] table {
+  border: none;
+  text-align: left;
+}
+
+[data-theme="deepseek"] [data-streamdown="table-header"] {
+  background-color: transparent;
+}
+
+[data-theme="deepseek"] [data-streamdown="table-body"] {
+  border: none;
+}
+
+[data-theme="deepseek"] [data-streamdown="table-header-cell"] {
+  border: none;
+  border-bottom: 1px solid var(--ds-rule-strong);
+  padding: 0.625rem 1rem;
+  font-size: 15px;
+  line-height: 25px;
+  font-weight: 500;
+  color: var(--foreground);
+  white-space: nowrap;
+}
+
+[data-theme="deepseek"] [data-streamdown="table-cell"] {
+  border: none;
+  border-bottom: 1px solid var(--border);
+  padding: 0.625rem 1rem;
+  font-size: 15px;
+  line-height: 25px;
+  vertical-align: top;
+}
+
+/* 首尾列去掉外侧内边距，让表格文字与正文左缘对齐 */
+[data-theme="deepseek"] [data-streamdown="table-header-cell"]:first-child,
+[data-theme="deepseek"] [data-streamdown="table-cell"]:first-child {
+  padding-left: 0;
+}
+
+[data-theme="deepseek"] [data-streamdown="table-header-cell"]:last-child,
+[data-theme="deepseek"] [data-streamdown="table-cell"]:last-child {
+  padding-right: 0;
+}
+
+[data-theme="deepseek"] [data-streamdown="table-cell"] code {
+  font-size: 13px;
+}

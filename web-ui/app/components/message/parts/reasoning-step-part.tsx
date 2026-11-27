@@ -131,7 +131,7 @@ export function ReasoningStepPart({ reasoning, collapsedAdaptiveWidth = false, i
       >
         <div
           ref={contentRef}
-          className={preview ? "styled-scrollbar relative max-h-24 overflow-y-auto" : undefined}
+          className={preview ? "relative max-h-24 overflow-y-auto" : undefined}
         >
           <Markdown content={reasoning.reasoning} className="text-xs" isAnimating={loading} />
         </div>

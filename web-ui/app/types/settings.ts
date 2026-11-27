@@ -9,6 +9,14 @@ export interface DisplaySetting {
   showModelIcon?: boolean;
   showModelName: boolean;
   showTokenUsage: boolean;
+  /** 消息操作栏显示发送时间 */
+  showDateTimeInMessage?: boolean;
+  /** 消息操作栏显示正文字数 */
+  showCharacterCountInMessage?: boolean;
+  /** 会话右侧的消息定位条 */
+  showMessageJumper?: boolean;
+  /** 侧边栏按「今天 / 昨天 / 7 天内 / 30 天内 / 年月」粗粒度分组 */
+  enableSidebarDateGrouping?: boolean;
   showThinkingContent: boolean;
   autoCloseThinking: boolean;
   codeBlockAutoWrap: boolean;
@@ -113,6 +121,8 @@ export interface ProviderModel {
   modelId: string;
   displayName: string;
   type: ModelType;
+  /** App 端「隐藏模型」开关，隐藏的模型不出现在模型选择列表里 */
+  isHidden?: boolean;
   inputModalities?: ModelModality[];
   outputModalities?: ModelModality[];
   abilities?: ModelAbility[];

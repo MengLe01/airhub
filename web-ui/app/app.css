@@ -1,5 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+/* 定制样式统一放这里，app.css 只留 token 与主题变量 */
+@import "./styles/deepseek.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -61,6 +63,23 @@
   --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
+
+  /* ===== 定制 token =====
+     其余配色主题没有单独定义，按前景色 / 主色推导出兜底的层级；
+     [data-theme="deepseek"] 里用精确色值覆盖。 */
+  --ds-label-secondary: color-mix(in oklab, var(--foreground) 76%, transparent);
+  --ds-label-caption: color-mix(in oklab, var(--foreground) 50%, transparent);
+  --ds-primary-hover: color-mix(in oklab, var(--primary) 88%, transparent);
+  --ds-destructive-hover: color-mix(in oklab, var(--destructive) 88%, transparent);
+  --ds-rule-strong: color-mix(in oklab, var(--foreground) 12%, transparent);
+  --ds-code-inline-bg: var(--muted);
+  --ds-code-block-bg: transparent;
+  --ds-chat-bubble: var(--muted);
+  /* 会话正文栏宽，默认与上游的 max-w-3xl 一致 */
+  --ds-chat-column: 48rem;
+  /* 弹窗、菜单、下拉浮层共用的浮起阴影 */
+  --ds-elevation-3:
+    0 0 1px 0 rgb(0 0 0 / 0.2), 0 0 4px 0 rgb(0 0 0 / 0.02), 0 12px 32px 0 rgb(0 0 0 / 0.08);
 }
 
 .dark {
@@ -588,6 +607,90 @@
   --shadow-2xl: 3px 3px 0px 0px hsl(206.1538 28.0576% 27.2549% / 2.5);
 }
 
+/* DeepSeek 风格：冷灰蓝底 + 蓝色强调，圆角偏大，正文 16px */
+:root[data-theme="deepseek"] {
+  --background: #ffffff;
+  --foreground: #0f1115;
+  --card: #ffffff;
+  --card-foreground: #0f1115;
+  --popover: #ffffff;
+  --popover-foreground: #0f1115;
+  --primary: #3964fe;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f3f5;
+  --secondary-foreground: #0f1115;
+  --muted: #f1f3f5;
+  --muted-foreground: #81858c;
+  --accent: #f1f3f5;
+  --accent-foreground: #0f1115;
+  --destructive: #ec1313;
+  --destructive-foreground: #ffffff;
+  --border: rgb(15 17 21 / 0.1);
+  --input: rgb(15 17 21 / 0.1);
+  --ring: #3964fe;
+  --sidebar: #f9fafb;
+  --sidebar-foreground: #0f1115;
+  --sidebar-primary: #3964fe;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e4edfd;
+  --sidebar-accent-foreground: #0f1115;
+  --sidebar-border: rgb(15 17 21 / 0.06);
+  --sidebar-ring: #3964fe;
+  --radius: 0.75rem;
+  /* 侧边栏条目的悬停色，选中态另有 --sidebar-accent */
+  --ds-sidebar-hover: #f1f3f5;
+  --ds-chat-bubble: #edf3fe;
+  --ds-chat-column: 52.5rem;
+  --ds-label-secondary: #61666b;
+  --ds-label-caption: #adb2b8;
+  --ds-primary-hover: #5686fe;
+  --ds-destructive-hover: #f25a5a;
+  --ds-code-inline-bg: #ebeef2;
+  --ds-code-block-bg: #f9fafb;
+  --ds-rule-strong: rgb(15 17 21 / 0.12);
+}
+
+:root.dark[data-theme="deepseek"] {
+  --background: #151517;
+  --foreground: #f9fafb;
+  --card: #2c2c2e;
+  --card-foreground: #f9fafb;
+  --popover: #353638;
+  --popover-foreground: #f9fafb;
+  --primary: #5686fe;
+  --primary-foreground: #ffffff;
+  --secondary: #2c2c2e;
+  --secondary-foreground: #f9fafb;
+  --muted: #2c2c2e;
+  --muted-foreground: #adb2b8;
+  --accent: #353638;
+  --accent-foreground: #f9fafb;
+  --destructive: #f25a5a;
+  --destructive-foreground: #ffffff;
+  --border: rgb(255 255 255 / 0.12);
+  --input: rgb(255 255 255 / 0.12);
+  --ring: #5686fe;
+  --sidebar: #1b1b1c;
+  --sidebar-foreground: #f9fafb;
+  --sidebar-primary: #5686fe;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #353638;
+  --sidebar-accent-foreground: #f9fafb;
+  --sidebar-border: rgb(255 255 255 / 0.06);
+  --sidebar-ring: #5686fe;
+  --radius: 0.75rem;
+  --ds-sidebar-hover: #2c2c2e;
+  --ds-chat-bubble: #2c2c2e;
+  --ds-chat-column: 52.5rem;
+  --ds-label-secondary: #cfd3d6;
+  --ds-label-caption: #adb2b8;
+  --ds-primary-hover: #5686fe;
+  --ds-destructive-hover: #f25a5a;
+  --ds-code-inline-bg: #2c2c2e;
+  --ds-code-block-bg: #1b1b1c;
+  --ds-rule-strong: rgb(255 255 255 / 0.16);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -606,6 +709,7 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
+  --color-border-strong: var(--ds-rule-strong);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-chart-1: var(--chart-1);
@@ -639,6 +743,15 @@
   --shadow-lg: var(--shadow-lg);
   --shadow-xl: var(--shadow-xl);
   --shadow-2xl: var(--shadow-2xl);
+  --shadow-float: var(--ds-elevation-3);
+
+  /* 文字层级与悬停色，供组件按语义取色 */
+  --color-label-secondary: var(--ds-label-secondary);
+  --color-label-caption: var(--ds-label-caption);
+  --color-primary-hover: var(--ds-primary-hover);
+  --color-destructive-hover: var(--ds-destructive-hover);
+  --color-code-inline: var(--ds-code-inline-bg);
+  --color-code-block: var(--ds-code-block-bg);
 }
 
 @layer base {
@@ -650,40 +763,35 @@
   }
 }
 
-/* Global scrollbar style, matching ScrollArea (radix) appearance */
+/* 全局滚动条：只覆盖 ::-webkit-scrollbar 系列。
+   不要同时写 scrollbar-width / scrollbar-color —— Chrome 只要看到这两个标准属性，
+   就会改用系统原生滚动条，Windows 上两端会带上下的三角按钮。
+   反过来，只写 webkit 伪元素时 Chrome 走自定义绘制，三角按钮也不会出现。 */
 @layer base {
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
-  }
-
   *::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 12px;
+    height: 12px;
   }
-
-  *::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  *::-webkit-scrollbar-thumb {
-    background-color: var(--border);
-    border-radius: 9999px;
-    border: 2px solid transparent;
-    background-clip: content-box;
-  }
-
+  *::-webkit-scrollbar-track,
   *::-webkit-scrollbar-corner {
     background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 9999px;
+    background-color: var(--border);
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklab, var(--foreground) 28%, transparent);
+  }
+  *::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
   }
 }
 
 [data-theme="claude"] [data-message-bubble] {
   font-family: var(--font-serif);
-}
-
-/* Keep the utility class for compatibility with existing usage. */
-.styled-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
 }
